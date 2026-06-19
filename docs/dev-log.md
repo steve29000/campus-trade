@@ -66,3 +66,20 @@
 - Maven 不一定要全局安装，IDE 也可能自带可用 Maven。
 - Maven 会把依赖下载到本机 `~/.m2/repository` 缓存目录。
 - 后续每个小功能完成后，都应该优先跑 Maven 验证，而不是只靠单文件 `javac`。
+
+## 2026-06-19：用户服务接口骨架
+
+### 本次完成
+
+- 为 `campus-user` 增加注册、登录和用户资料查询三个基础接口。
+- 增加 `UserRegisterRequest`、`UserLoginRequest`、`UserProfileResponse` 和 `LoginResponse` 四个 DTO。
+- 增加简单的内存版 `UserService`，用于演示 controller-service 分层。
+- 登录接口暂时返回 mock token，后续可以替换为 JWT。
+- 重复用户名返回 `CONFLICT` 结果码，并在密码相关 DTO 的 `toString()` 中隐藏密码。
+
+### 学到的内容
+
+- DTO 可以让接口入参和返回结果更清楚，避免直接暴露内部存储对象。
+- 在课程项目早期，内存实现能先验证接口结构，再逐步替换成数据库实现。
+- 骨架阶段先用简单 `if` 判断做参数检查，不急着引入额外依赖。
+- 即使是 mock 代码，也要标注明文密码只是临时方案，避免后续误用。

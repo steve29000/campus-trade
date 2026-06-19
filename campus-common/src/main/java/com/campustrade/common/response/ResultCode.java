@@ -7,6 +7,7 @@ public enum ResultCode {
     UNAUTHORIZED(401, "unauthorized"),
     FORBIDDEN(403, "forbidden"),
     NOT_FOUND(404, "not found"),
+    CONFLICT(409, "conflict"),
     BUSINESS_ERROR(5001, "business error"),
     SYSTEM_ERROR(500, "system error");
 
