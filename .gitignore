@@ -5,3 +5,4 @@ target/
 *.iml
 .vscode/
 .mvn/wrapper/maven-wrapper.jar
+.project-memory/
