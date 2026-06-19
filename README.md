@@ -15,7 +15,7 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 ## 核心功能
 
-- 用户注册、登录、JWT 鉴权
+- 用户注册、登录、后续 JWT 鉴权
 - 商品发布、编辑、浏览、搜索
 - 商品分类与状态管理
 - 订单创建、取消、完成
@@ -84,7 +84,7 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 ## 当前运行方式
 
-当前阶段只包含 Maven 多模块骨架和最小 Spring Boot 启动类，可以先执行：
+当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类，以及 `campus-user` 的注册、登录 mock 和用户资料查询接口骨架。数据库持久化、JWT 鉴权和完整网关联调仍在后续阶段实现。可以先执行：
 
 ```bash
 mvn test
@@ -97,6 +97,10 @@ mvn test
 ```
 
 后续接入 Nacos 后，再分别启动各服务模块。
+
+## 接口文档
+
+- [campus-user API](docs/api/user-service.md)：记录当前用户服务骨架接口，包括注册、登录和用户资料查询示例。当前用户数据仅保存在内存中，登录 token 为 mock-only。
 
 ## 第一阶段 10 个小 commit 计划
 
