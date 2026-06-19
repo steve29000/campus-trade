@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: campus-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+    gateway:
+      routes:
+        - id: campus-user
+          uri: lb://campus-user
+          predicates:
+            - Path=/user/**
+        - id: campus-product
+          uri: lb://campus-product
+          predicates:
+            - Path=/product/**
+        - id: campus-order
+          uri: lb://campus-order
+          predicates:
+            - Path=/order/**
+        - id: campus-ai
+          uri: lb://campus-ai
+          predicates:
+            - Path=/ai/**
+        - id: campus-message
+          uri: lb://campus-message
+          predicates:
+            - Path=/message/**

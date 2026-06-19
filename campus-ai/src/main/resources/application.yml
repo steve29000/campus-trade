@@ -1,0 +1,10 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: campus-ai
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
