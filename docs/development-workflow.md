@@ -53,3 +53,9 @@ Use the strongest available verification for the current step:
 - Single module changes: `mvn -pl <module> test`
 - Documentation-only changes: review file list and Markdown content
 - GitHub publishing: confirm `git status` is clean and remote branch exists
+
+If `mvn` is not available on `PATH`, this project's current macOS development environment can use IntelliJ IDEA's bundled Maven:
+
+```bash
+"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn" test
+```

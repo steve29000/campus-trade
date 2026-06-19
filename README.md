@@ -90,6 +90,12 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 mvn test
 ```
 
+如果终端提示 `mvn: command not found`，在本机 macOS + IntelliJ IDEA 环境中，可以先使用 IntelliJ IDEA 自带的 Maven：
+
+```bash
+"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn" test
+```
+
 后续接入 Nacos 后，再分别启动各服务模块。
 
 ## 第一阶段 10 个小 commit 计划

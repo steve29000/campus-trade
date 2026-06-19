@@ -42,3 +42,27 @@
 - 公共模块适合放多个服务都会用到的返回结构和异常约定。
 - 统一结果码能减少各个服务自己随意写 code 和 message 的情况。
 - 公共模块不能变成杂物间，当前阶段只放响应、结果码和业务异常最容易解释、也最实用。
+
+## 2026-06-19：Maven 构建验证
+
+### 本次完成
+
+- 确认当前终端没有全局 `mvn` 命令。
+- 找到 IntelliJ IDEA 自带的 Maven 3.9.11。
+- 使用 IntelliJ IDEA Maven 成功执行多模块 `test` 生命周期。
+
+### 验证结果
+
+- `campus-common`：SUCCESS
+- `campus-gateway`：SUCCESS
+- `campus-user`：SUCCESS
+- `campus-product`：SUCCESS
+- `campus-order`：SUCCESS
+- `campus-ai`：SUCCESS
+- `campus-message`：SUCCESS
+
+### 学到的内容
+
+- Maven 不一定要全局安装，IDE 也可能自带可用 Maven。
+- Maven 会把依赖下载到本机 `~/.m2/repository` 缓存目录。
+- 后续每个小功能完成后，都应该优先跑 Maven 验证，而不是只靠单文件 `javac`。
