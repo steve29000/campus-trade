@@ -84,7 +84,7 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 ## 当前运行方式
 
-当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类，以及 `campus-user` 的注册、登录 mock 和用户资料查询接口骨架。数据库持久化、JWT 鉴权和完整网关联调仍在后续阶段实现。可以先执行：
+当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类、`campus-user` 的注册/登录 mock/用户资料查询接口，以及 `campus-ai` 的描述优化、分类预测和内容检查 mock 接口。数据库持久化、JWT 鉴权、真实大模型接入和完整网关联调仍在后续阶段实现。可以先执行：
 
 ```bash
 mvn test

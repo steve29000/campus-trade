@@ -112,3 +112,19 @@
 - API 文档应该先描述当前已经实现的行为，避免把后续计划误写成现状。
 - 统一响应结构让接口示例更容易阅读，也方便后续接 Swagger/Knife4j。
 - 把 mock token 和内存存储写清楚，可以减少读者对 JWT、数据库状态的误解。
+
+## 2026-06-19：AI mock 服务
+
+### 本次完成
+
+- 为 `campus-ai` 增加描述优化、分类预测和内容检查三组 DTO。
+- 增加 `AiProvider` 接口和确定性的 `MockAiProvider` 实现。
+- 增加 `AiController`，提供 `POST /ai/description/optimize`、`POST /ai/category/predict` 和 `POST /ai/content/check` 三个接口。
+- 三个接口统一返回 `ApiResponse`，缺少必要字段时返回 `BAD_REQUEST`。
+- 为 mock provider 增加单元测试，覆盖描述优化、分类预测和内容检查的核心规则。
+
+### 学到的内容
+
+- 先抽出 provider 接口，可以让 controller 的服务契约先稳定下来。
+- mock AI 结果需要保持确定性，这样课堂演示和自动化测试都更可靠。
+- 当前阶段不接真实模型、不保存数据，可以把重点放在接口边界和模块职责上。
