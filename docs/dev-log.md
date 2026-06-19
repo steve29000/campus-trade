@@ -28,3 +28,17 @@
 - 为 gateway、user、product、order、ai 服务补充 Nacos Discovery 配置。
 - 添加 gateway 基础路由。
 - 确保项目可以通过 Maven 编译。
+
+## 2026-06-19：公共基础结构
+
+### 本次完成
+
+- 为 `campus-common` 增加简单的 `ResultCode` 枚举，用于统一常见成功和失败状态。
+- 让 `ApiResponse` 可以直接使用结果码生成成功或失败响应。
+- 让 `BusinessException` 可以携带结果码，同时保留直接传入数字 code 的简单构造方式。
+
+### 学到的内容
+
+- 公共模块适合放多个服务都会用到的返回结构和异常约定。
+- 统一结果码能减少各个服务自己随意写 code 和 message 的情况。
+- 公共模块不能变成杂物间，当前阶段只放响应、结果码和业务异常最容易解释、也最实用。
