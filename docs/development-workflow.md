@@ -11,6 +11,19 @@ This project uses small, reviewable development steps. Each step should leave th
 5. Commit with a clear message.
 6. Push the branch after the local state is clean.
 
+## Branch Strategy
+
+Use one feature branch for a complete feature stage. Small follow-up changes should be committed on the same branch instead of creating a new branch each time.
+
+Recommended branch examples:
+
+- `feature/user-service`
+- `feature/ai-service`
+- `feature/product-service`
+- `feature/gateway-routing`
+
+Within one feature branch, prefer several small commits over one large commit.
+
 ## Feature Step Template
 
 Each feature step should answer:
