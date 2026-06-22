@@ -1,0 +1,117 @@
+package com.campustrade.message.controller;
+
+import com.campustrade.common.response.ApiResponse;
+import com.campustrade.message.dto.MessageCreateRequest;
+import com.campustrade.message.dto.MessageResponse;
+import com.campustrade.message.enums.MessageStatus;
+import com.campustrade.message.service.MessageService;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+class MessageControllerWebTest {
+
+    private final CapturingMessageService messageService = new CapturingMessageService();
+    private final MockMvc mockMvc = MockMvcBuilders
+            .standaloneSetup(new MessageController(messageService))
+            .build();
+
+    @Test
+    void postRouteBindsJsonRequestAndReturnsMessageJson() throws Exception {
+        mockMvc.perform(post("/message")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productId": 100,
+                                  "senderId": 2,
+                                  "content": "在吗"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.productId").value(100))
+                .andExpect(jsonPath("$.data.senderId").value(2))
+                .andExpect(jsonPath("$.data.status").value("VISIBLE"));
+
+        assertThat(messageService.createRequest.productId()).isEqualTo(100L);
+        assertThat(messageService.createRequest.senderId()).isEqualTo(2L);
+        assertThat(messageService.createRequest.content()).isEqualTo("在吗");
+    }
+
+    @Test
+    void listRouteBindsPathVariableAndSerializesList() throws Exception {
+        mockMvc.perform(get("/message/product/100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].productId").value(100));
+
+        assertThat(messageService.productId).isEqualTo(100L);
+    }
+
+    @Test
+    void hideRouteBindsPathVariableAndReturnsHiddenStatus() throws Exception {
+        mockMvc.perform(put("/message/7/hide"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("HIDDEN"));
+
+        assertThat(messageService.id).isEqualTo(7L);
+    }
+
+    @Test
+    void deleteRouteBindsPathVariable() throws Exception {
+        mockMvc.perform(delete("/message/7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        assertThat(messageService.id).isEqualTo(7L);
+    }
+
+    private static class CapturingMessageService extends MessageService {
+
+        private MessageCreateRequest createRequest;
+        private Long productId;
+        private Long id;
+
+        private CapturingMessageService() {
+            super(null, null);
+        }
+
+        @Override
+        public ApiResponse<MessageResponse> post(MessageCreateRequest request) {
+            this.createRequest = request;
+            return ApiResponse.success(new MessageResponse(7L, request.productId(), request.senderId(),
+                    request.content(), MessageStatus.VISIBLE));
+        }
+
+        @Override
+        public ApiResponse<List<MessageResponse>> listByProductId(Long productId) {
+            this.productId = productId;
+            return ApiResponse.success(List.of(
+                    new MessageResponse(7L, productId, 2L, "在吗", MessageStatus.VISIBLE)));
+        }
+
+        @Override
+        public ApiResponse<MessageResponse> hide(Long id) {
+            this.id = id;
+            return ApiResponse.success(new MessageResponse(id, 100L, 2L, "在吗", MessageStatus.HIDDEN));
+        }
+
+        @Override
+        public ApiResponse<Void> delete(Long id) {
+            this.id = id;
+            return ApiResponse.success();
+        }
+    }
+}

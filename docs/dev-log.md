@@ -286,3 +286,21 @@
 - 跨服务的拒绝原因应透传给调用方（这里把 AI 的违规原因放进响应 message），方便前端展示。
 - 引入构造注入会破坏 `new Service()` 形式的测试，需要同步更新 service 测试和继承式 Capturing 测试桩的 `super(...)`。
 - 商品服务以服务名调用 `campus-ai` 同样依赖 `spring-cloud-starter-loadbalancer`，和订单服务接入 Feign 时遇到的依赖问题一致。
+
+## 2026-06-22：留言服务第一阶段
+
+### 本次完成
+
+- 为 `campus-message` 落地留言发布、按商品查询、隐藏和删除四个接口，留言状态包括 `VISIBLE` 和 `HIDDEN`。
+- 发布留言时通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验发送者和商品是否存在，远程异常返回 `SYSTEM_ERROR`。
+- 按商品查询只返回 `VISIBLE` 留言并按 id 升序排列；隐藏做幂等处理，删除按物理移除处理。
+- 为 `campus-message` 补充 OpenFeign 和 LoadBalancer 依赖，并在启动类启用 `@EnableFeignClients`。
+- 新增 service 层单元测试和 controller 层 MockMvc 路由测试。
+- 新增留言服务 API 文档，更新 README 和架构文档。
+
+### 学到的内容
+
+- 留言服务是用户和商品之间的轻量交互入口，第一阶段先固定发布、查询、隐藏、删除四类接口，可以为后续买卖双方沟通打基础。
+- 隐藏和删除是两种不同的下线方式：隐藏保留数据只是不展示，删除直接移除，应该在接口语义上区分清楚。
+- 复用订单服务的跨服务校验模式（client DTO + try/catch 远程异常 + 统一兜底），可以让新服务快速达到一致的健壮性。
+- 列表查询默认过滤掉隐藏内容，避免被隐藏的留言继续出现在商品页。

@@ -154,7 +154,7 @@ AI 服务。
 
 ### campus-message
 
-留言服务，可选。
+留言服务。
 
 职责：
 
@@ -162,6 +162,15 @@ AI 服务。
 - 买卖双方沟通
 - 留言查询
 - 留言删除或隐藏
+
+当前接口：
+
+- `POST /message`
+- `GET /message/product/{productId}`
+- `PUT /message/{id}/hide`
+- `DELETE /message/{id}`
+
+当前留言数据暂存在服务内存中，支持留言发布、按商品查询、隐藏和删除。留言状态包括 `VISIBLE` 和 `HIDDEN`，按商品查询只返回 `VISIBLE` 留言并按 id 升序排列。发布留言时，`campus-message` 通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验发送者和商品是否存在：任一不存在时拒绝创建，远程服务不可用时返回 `SYSTEM_ERROR`。后续持久化阶段会通过 MyBatis Plus 和 MySQL 将内存留言迁移到数据库。
 
 ## 5. 服务调用关系
 

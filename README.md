@@ -106,6 +106,7 @@ mvn test
 - [campus-ai API](docs/api/ai-service.md)：记录当前 AI mock 服务接口，包括描述优化、分类预测和内容检查示例。当前 AI provider 为确定性 mock-only 实现，不调用外部模型。
 - [campus-product API](docs/api/product-service.md)：记录当前商品服务第一阶段接口，包括商品发布、列表筛选、详情查询和状态更新示例。当前商品数据仅保存在内存中。
 - [campus-order API](docs/api/order-service.md)：记录当前订单服务接口，包括基于 OpenFeign 的订单创建校验、详情查询、买家/卖家订单列表、取消和完成示例。当前订单数据仅保存在内存中，不包含在线支付。
+- [campus-message API](docs/api/message-service.md)：记录当前留言服务接口，包括基于 OpenFeign 的留言发布校验、按商品查询、隐藏和删除示例。当前留言数据仅保存在内存中。
 
 ## 功能阶段开发方式
 
@@ -120,6 +121,8 @@ mvn test
 5. `campus-order` 订单创建、详情查询、买家/卖家列表、取消、完成内存版接口及 API 文档。
 6. `campus-gateway` 基础路由表验证与网关路由文档。
 7. `campus-order` 通过 OpenFeign 调用 `campus-user` 和 `campus-product` 完成订单创建前校验。
+8. `campus-product` 商品发布通过 OpenFeign 调用 `campus-ai` 完成内容安全检查。
+9. `campus-message` 留言发布、按商品查询、隐藏、删除内存版接口，通过 OpenFeign 校验发送者和商品。
 
 ## 开发原则
 
