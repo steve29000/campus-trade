@@ -234,3 +234,21 @@
 - 订单创建不能信任客户端传入的商品标题和价格，应由订单服务调用商品服务生成快照。
 - 增加跨服务校验后，测试数据也要符合业务规则，例如订单的 `sellerId` 必须匹配商品发布者。
 - Java 包装类型比较要使用 `.equals`，不能用 `Integer == Integer`；本地构造对象和远程 JSON 反序列化对象可能不是同一个引用。
+
+## 2026-06-22：全局异常处理基础
+
+### 本次完成
+
+- 在 `campus-common` 增加 `GlobalExceptionHandler`，统一兜底业务异常、请求体解析失败、路径/参数类型不匹配、Bean Validation 失败和未预期异常。
+- 通过 Spring Boot 自动配置（`AutoConfiguration.imports`）注册处理器，servlet MVC 服务无需改启动类即可生效。
+- 自动配置使用 `@ConditionalOnClass(DispatcherServlet)` 守卫，`campus-gateway`（WebFlux）自动跳过，不会因 servlet 处理器报错。
+- 为 `campus-common` 补充 web 与自动配置的 optional 依赖，并新增基于 MockMvc standalone 的处理器单元测试。
+- 更新架构文档，记录公共模块新增的全局异常处理职责。
+
+### 学到的内容
+
+- `campus-common` 的包不在各服务启动类扫描路径下，让公共组件生效的干净做法是 Spring Boot 自动配置，而不是要求每个服务改 `scanBasePackages`。
+- 公共模块引入 web 依赖应使用 `optional`，避免把 servlet/web 强加给 WebFlux 的 gateway 模块。
+- `@ConditionalOnClass` 能让同一个公共模块在 servlet 和响应式服务里安全共存。
+- 全局异常处理要与项目既有约定一致：HTTP 状态保持 200，语义放在响应体 `code`，避免一边返回统一结构、一边又抛框架 500。
+- WebFlux 的统一异常处理与 servlet 的 `@RestControllerAdvice` 机制不同，gateway 的响应式兜底需要后续单独设计。

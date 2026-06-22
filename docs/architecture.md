@@ -45,9 +45,12 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 
 - 统一响应结构
 - 统一异常定义
+- 全局异常处理（servlet MVC 服务统一兜底）
 - 公共常量
 - 公共工具类
 - 基础 DTO
+
+`campus-common` 通过 Spring Boot 自动配置注册全局异常处理器 `GlobalExceptionHandler`，引入 servlet MVC 的服务（user、product、order、ai、message）无需额外配置即可统一兜底业务异常、请求解析错误和未预期异常，避免直接暴露框架 500 堆栈。自动配置使用 `@ConditionalOnClass(DispatcherServlet)` 守卫，`campus-gateway` 这类 WebFlux 模块会自动跳过，其响应式异常处理留待后续阶段单独接入。各服务保持现有约定：HTTP 状态固定为 200，真正的语义放在响应体的 `code` 字段里。
 
 ### campus-gateway
 
