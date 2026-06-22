@@ -113,8 +113,20 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - 查询订单
 - 取消订单
 - 完成订单
-- 调用 campus-product 查询商品信息
-- 调用 campus-user 查询用户信息
+- 当前第一阶段使用请求中的商品快照创建订单，不直接调用其他服务
+- 后续调用 campus-product 查询商品信息
+- 后续调用 campus-user 查询用户信息
+
+当前第一阶段接口：
+
+- `POST /order`
+- `GET /order/{id}`
+- `GET /order/buyer/{buyerId}`
+- `GET /order/seller/{sellerId}`
+- `PUT /order/{id}/cancel`
+- `PUT /order/{id}/complete`
+
+第一阶段订单数据暂存在服务内存中，支持订单创建、详情查询、买家订单列表、卖家订单列表、取消和完成。订单状态包括 `CREATED`、`CANCELLED` 和 `COMPLETED`。本阶段不实现在线支付，校园二手交易仍默认线下面交。后续集成阶段会通过 OpenFeign 连接 `campus-user` 和 `campus-product` 做真实用户、商品校验，并通过 MyBatis Plus 和 MySQL 将当前内存订单迁移到数据库持久化。
 
 ### campus-ai
 
