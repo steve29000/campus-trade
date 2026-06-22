@@ -1,1 +1,2 @@
 com.campustrade.common.config.GlobalExceptionHandlerAutoConfiguration
+com.campustrade.common.config.JwtAutoConfiguration

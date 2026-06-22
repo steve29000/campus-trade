@@ -1,6 +1,11 @@
 server:
   port: 8080
 
+jwt:
+  # 必须与 campus-user 的 jwt.secret 保持一致。
+  secret: campus-trade-jwt-secret-key-change-me-in-production-0123456789
+  expiration: 86400000
+
 spring:
   application:
     name: campus-gateway

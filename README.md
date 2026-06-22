@@ -86,7 +86,7 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 当前阶段包含 Maven 多模块骨架、`campus-user` 的注册/登录 mock/用户资料查询接口、`campus-ai` 的描述优化/分类预测/内容检查 mock 接口、`campus-product` 的商品发布/浏览/详情/状态更新接口、`campus-order` 的订单创建/查询/取消/完成接口、`campus-message` 的留言发布/查询/隐藏/删除接口，以及 `campus-gateway` 的基础路由转发配置。`campus-product` 发布时通过 OpenFeign 调用 `campus-ai` 做内容安全检查；`campus-order` 创建订单时通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验买家、卖家、商品并生成商品快照，下单成功前把商品状态更新为 `SOLD`，取消订单时回滚为 `ON_SALE`；`campus-message` 发布留言时校验发送者和商品。
 
-`campus-user`、`campus-product`、`campus-order`、`campus-message` 已接入 **MyBatis Plus + MySQL（每服务独立库）**，数据真正落库；`campus-ai` 为无状态 mock，不用数据库。JWT 鉴权、真实大模型接入、在线支付、CORS 自定义、Sentinel 和路径重写仍在后续阶段之外；校园交易默认线下面交。
+`campus-user`、`campus-product`、`campus-order`、`campus-message` 已接入 **MyBatis Plus + MySQL（每服务独立库）**，数据真正落库；`campus-ai` 为无状态 mock，不用数据库。`campus-gateway` 已接入 **JWT 鉴权**：登录/注册放行，其余请求需携带 `Authorization: Bearer <token>`，登录由 `campus-user` 签发 JWT。真实大模型接入、在线支付、CORS 自定义、Sentinel 和路径重写仍在后续阶段之外；校园交易默认线下面交。
 
 不需要数据库即可执行单元测试（持久化层测试用 H2 内存库）：
 
@@ -139,6 +139,7 @@ docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
 9. `campus-message` 留言发布、按商品查询、隐藏、删除接口，通过 OpenFeign 校验发送者和商品。
 10. `campus-common` 全局异常处理（自动配置，servlet 服务统一兜底，gateway 安全跳过）。
 11. `campus-user`、`campus-product`、`campus-order`、`campus-message` 接入 MyBatis Plus + MySQL（每服务独立库），内存存储替换为数据库。
+12. `campus-gateway` JWT 鉴权（登录/注册放行，其余校验 Bearer token），登录由 `campus-user` 签发 JWT，`JwtUtil` 在 `campus-common` 共享。
 
 ## 开发原则
 

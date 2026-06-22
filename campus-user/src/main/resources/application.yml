@@ -18,3 +18,8 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
     default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+
+jwt:
+  # user 与 gateway 必须使用相同的 secret；生产环境应通过环境变量/配置中心注入。
+  secret: campus-trade-jwt-secret-key-change-me-in-production-0123456789
+  expiration: 86400000

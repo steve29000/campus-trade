@@ -323,3 +323,21 @@
 - Spring Cloud 的 Feign client bean 默认是 `@Primary`，测试里再注册 `@Primary` 假 bean 会冲突；可改用「真实 Mapper + 直接 new service 注入假 client」的方式。
 - 数据库化后主键由数据库自增生成，插入后回填到实体；不再依赖应用内的自增计数器。
 - 微服务用服务名调用时，注册到 Nacos 的实例 IP 必须可达；机器换网络后旧实例会带着失效 IP 注册，需要重启服务重新注册。
+
+## 2026-06-22：JWT 网关鉴权
+
+### 本次完成
+
+- 在 `campus-common` 增加共享的 `JwtUtil`（HMAC 签名/校验）、`JwtProperties` 和自动配置，user 与 gateway 通过相同 `jwt.secret` 共用同一套 JWT。
+- `campus-user` 登录成功改为签发真实 JWT（subject 为用户 id，附带 username），替换原 mock token。
+- `campus-gateway` 增加响应式全局过滤器 `JwtAuthFilter`：放行 `/user/login`、`/user/register`，其余请求校验 `Authorization: Bearer <token>`，非法或缺失直接返回 401，校验通过后把用户 id 放进 `X-User-Id` 传给下游。
+- 引入 jjwt（父 pom 统一管理版本），为 `JwtUtil` 和网关过滤器补充单元测试。
+- 真实运行验证：经网关注册/登录拿 token，受保护路由不带 token 返回 401、带合法 token 返回 200、带伪造 token 返回 401。
+
+### 学到的内容
+
+- 无状态 JWT 不需要 Redis：网关只用共享密钥校验签名和过期即可，token 吊销等场景才需要引入 Redis。
+- 网关是 WebFlux，鉴权要用 `GlobalFilter` 响应式写法，拒绝时直接写 `ServerHttpResponse` 的 401 JSON，而不是抛异常。
+- 共享密钥要在 user 和 gateway 两处保持一致；密钥写在 `application.yml` 只适合本地，生产应走环境变量或配置中心。
+- 父 pom 改了 dependencyManagement 后，必须重新 install 父 pom，否则子模块按服务名引用的依赖会找不到版本。
+- 网关鉴权失败返回真实 HTTP 401（与业务接口「200 + body code」约定不同），因为请求在安全边界就被拦截，没有进入具体服务。

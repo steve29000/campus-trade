@@ -80,7 +80,7 @@ class UserControllerWebTest {
         private Long id;
 
         private CapturingUserService() {
-            super(null);
+            super(null, null);
         }
 
         @Override

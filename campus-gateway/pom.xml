@@ -16,6 +16,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.campustrade</groupId>
+            <artifactId>campus-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>

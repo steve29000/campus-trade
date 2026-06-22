@@ -19,3 +19,7 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
     default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+
+jwt:
+  secret: campus-trade-jwt-secret-key-for-tests-0123456789-abcdefg
+  expiration: 86400000

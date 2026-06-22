@@ -3,6 +3,7 @@ package com.campustrade.user.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campustrade.common.response.ApiResponse;
 import com.campustrade.common.response.ResultCode;
+import com.campustrade.common.security.JwtUtil;
 import com.campustrade.user.dto.LoginResponse;
 import com.campustrade.user.dto.UserLoginRequest;
 import com.campustrade.user.dto.UserProfileResponse;
@@ -16,9 +17,11 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private final UserMapper userMapper;
+    private final JwtUtil jwtUtil;
 
-    public UserService(UserMapper userMapper) {
+    public UserService(UserMapper userMapper, JwtUtil jwtUtil) {
         this.userMapper = userMapper;
+        this.jwtUtil = jwtUtil;
     }
 
     public ApiResponse<UserProfileResponse> register(UserRegisterRequest request) {
@@ -58,8 +61,8 @@ public class UserService {
             return ApiResponse.fail(ResultCode.UNAUTHORIZED, "username or password is incorrect");
         }
 
-        String mockToken = "mock-token-user-" + user.getId();
-        return ApiResponse.success(new LoginResponse(mockToken, toProfile(user)));
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        return ApiResponse.success(new LoginResponse(token, toProfile(user)));
     }
 
     public ApiResponse<UserProfileResponse> findProfile(Long id) {

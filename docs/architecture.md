@@ -46,6 +46,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - 统一响应结构
 - 统一异常定义
 - 全局异常处理（servlet MVC 服务统一兜底）
+- JWT 工具（`JwtUtil`，user 签发、gateway 校验共用，自动配置）
 - 公共常量
 - 公共工具类
 - 基础 DTO
@@ -70,7 +71,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 | `/ai/**` | `campus-ai` | `lb://campus-ai` |
 | `/message/**` | `campus-message` | `lb://campus-message` |
 
-当前阶段 `campus-gateway` 只负责把请求按照路径转发到对应服务，暂不做路径重写。JWT 鉴权、CORS 自定义、Sentinel 限流/降级和更完整的统一请求日志会在后续阶段逐步接入。
+当前 `campus-gateway` 负责路由转发和 **JWT 鉴权**。网关上的 `JwtAuthFilter`（全局过滤器）放行 `/user/login` 和 `/user/register`，其余请求必须携带有效的 `Authorization: Bearer <token>`，否则直接返回 401；校验通过后把用户 id 放进 `X-User-Id` 请求头传给下游。token 由 `campus-user` 登录时签发，网关与用户服务通过共享的 `jwt.secret` 校验同一个 JWT（共享工具 `JwtUtil` 在 `campus-common`）。CORS 自定义、Sentinel 限流/降级、路径重写和更完整的统一请求日志仍在后续阶段。
 `lb://` 目标地址依赖 Spring Cloud LoadBalancer 和服务发现能力，当前测试会校验路由表以及 LoadBalancer 运行时支持是否存在。
 
 ### campus-user
@@ -81,7 +82,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 
 - 用户注册
 - 用户登录
-- 第一阶段返回 mock token，后续替换为 JWT 签发
+- 登录成功签发 JWT（HMAC 签名，subject 为用户 id，附带 username）
 - 用户信息查询
 - 用户基础资料维护
 
