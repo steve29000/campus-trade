@@ -4,11 +4,11 @@ This document describes the current `campus-gateway` route table. It is intended
 
 ## Current Phase Notes
 
-- `campus-gateway` currently performs route forwarding only.
+- `campus-gateway` performs route forwarding and JWT authentication.
 - Routes use Spring Cloud Gateway `Path` predicates and `lb://` target URIs so requests can be forwarded through Nacos service discovery.
 - The gateway includes Spring Cloud LoadBalancer support for `lb://` routes.
-- The gateway does not currently apply JWT authentication, custom CORS rules, Sentinel rate limiting/fallbacks, or path rewriting.
-- JWT auth, CORS customization, Sentinel integration, and path rewriting are planned later stages.
+- A global `JwtAuthFilter` whitelists `/user/login` and `/user/register`; all other requests must send `Authorization: Bearer <token>` or receive HTTP 401. On success the gateway adds an `X-User-Id` header for downstream services.
+- Custom CORS rules, Sentinel rate limiting/fallbacks, and path rewriting are still planned later stages.
 
 ## Route Table
 
@@ -40,9 +40,9 @@ Because path rewriting is not part of this stage, downstream services should con
 
 ## Later Gateway Stages
 
-Later gateway work can add cross-cutting platform concerns after route forwarding is stable:
+JWT authentication and user identity propagation (`X-User-Id`) are now in place. Later gateway work can add the remaining cross-cutting concerns:
 
-- JWT authentication and user identity propagation.
 - Project-specific CORS customization for frontend integration.
 - Sentinel rate limiting, fallback, and resilience rules.
 - Path rewriting if service-internal endpoint prefixes are changed.
+- Token revocation / refresh (would introduce Redis).

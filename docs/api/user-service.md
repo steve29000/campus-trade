@@ -4,10 +4,9 @@ This document describes the current `campus-user` skeleton API. It is intended f
 
 ## Current Phase Notes
 
-- User data is stored in memory inside the running `campus-user` process.
-- Registered users are lost when the service restarts.
-- Password storage and validation are mock-only in this phase: the current demo stores plain text passwords in memory and compares them directly.
-- Login returns a mock token such as `mock-token-user-1`; it is not a JWT and should not be used as a real authentication token.
+- User data is persisted in MySQL (`campus_user_db.user`) via MyBatis Plus.
+- Password storage is still mock-only: plain text is stored and compared directly (hashing is a later stage).
+- Login returns a real JWT (HMAC-signed, subject = user id, with a `username` claim). The gateway validates this token for protected routes; `/user/login` and `/user/register` are public.
 - Responses use the shared `ApiResponse` envelope:
 
 ```json
@@ -76,7 +75,7 @@ Duplicate username:
 
 `POST /user/login`
 
-Checks the in-memory username and password, then returns a mock token and the user profile.
+Checks the stored username and password, then returns a signed JWT and the user profile.
 
 ### Request
 
@@ -94,7 +93,7 @@ Checks the in-memory username and password, then returns a mock token and the us
   "code": 200,
   "message": "success",
   "data": {
-    "token": "mock-token-user-1",
+    "token": "eyJhbGciOiJIUzM4NCJ9.<payload>.<signature>",
     "user": {
       "id": 1,
       "username": "alice",
