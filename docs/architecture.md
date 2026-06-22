@@ -94,6 +94,15 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - 商品分类管理
 - 调用 campus-ai 完成描述优化、智能分类和违规检测
 
+当前第一阶段接口：
+
+- `POST /product`
+- `GET /product`
+- `GET /product/{id}`
+- `PUT /product/{id}/status`
+
+第一阶段商品数据暂存在服务内存中，支持发布、按关键词/分类/状态筛选、详情查询和状态更新。商品状态包括 `ON_SALE`、`OFF_SALE` 和 `SOLD`。后续持久化阶段会接入 MyBatis Plus 和 MySQL，将当前内存存储替换为数据库表，并为订单、搜索和 AI 审核流程提供更稳定的数据基础。
+
 ### campus-order
 
 订单服务。

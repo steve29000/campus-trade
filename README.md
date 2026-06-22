@@ -84,7 +84,7 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 ## 当前运行方式
 
-当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类、`campus-user` 的注册/登录 mock/用户资料查询接口，以及 `campus-ai` 的描述优化、分类预测和内容检查 mock 接口。数据库持久化、JWT 鉴权、真实大模型接入和完整网关联调仍在后续阶段实现。可以先执行：
+当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类、`campus-user` 的注册/登录 mock/用户资料查询接口、`campus-ai` 的描述优化/分类预测/内容检查 mock 接口，以及 `campus-product` 的内存版商品发布、浏览、详情查询和状态更新接口。数据库持久化、JWT 鉴权、真实大模型接入和完整网关联调仍在后续阶段实现。可以先执行：
 
 ```bash
 mvn test
@@ -102,6 +102,7 @@ mvn test
 
 - [campus-user API](docs/api/user-service.md)：记录当前用户服务骨架接口，包括注册、登录和用户资料查询示例。当前用户数据仅保存在内存中，登录 token 为 mock-only。
 - [campus-ai API](docs/api/ai-service.md)：记录当前 AI mock 服务接口，包括描述优化、分类预测和内容检查示例。当前 AI provider 为确定性 mock-only 实现，不调用外部模型。
+- [campus-product API](docs/api/product-service.md)：记录当前商品服务第一阶段接口，包括商品发布、列表筛选、详情查询和状态更新示例。当前商品数据仅保存在内存中。
 
 ## 功能阶段开发方式
 
@@ -112,6 +113,7 @@ mvn test
 1. 项目规划、Maven 多模块骨架和公共响应结构。
 2. `campus-user` 注册、登录、用户资料查询 mock 接口及对应测试和 API 文档。
 3. `campus-ai` 描述优化、分类预测、内容检查 mock 接口及对应测试和 API 文档。
+4. `campus-product` 商品发布、列表筛选、详情查询、状态更新内存版接口及 API 文档。
 
 ## 开发原则
 
