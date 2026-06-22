@@ -101,35 +101,23 @@ mvn test
 ## 接口文档
 
 - [campus-user API](docs/api/user-service.md)：记录当前用户服务骨架接口，包括注册、登录和用户资料查询示例。当前用户数据仅保存在内存中，登录 token 为 mock-only。
+- [campus-ai API](docs/api/ai-service.md)：记录当前 AI mock 服务接口，包括描述优化、分类预测和内容检查示例。当前 AI provider 为确定性 mock-only 实现，不调用外部模型。
 
-## 第一阶段 10 个小 commit 计划
+## 功能阶段开发方式
 
-1. `docs: 初始化项目说明文档`
-   - 创建 `README.md`、`AGENTS.md`、`docs/dev-log.md`、`docs/architecture.md`、`docs/prompts/`。
-2. `chore: 初始化 Maven 父工程`
-   - 创建根 `pom.xml`，锁定 Java 17、Spring Boot、Spring Cloud Alibaba 版本管理。
-3. `chore: 添加 common 公共模块`
-   - 创建 `campus-common`，添加统一响应结构和基础异常占位。
-4. `chore: 添加 gateway 服务模块`
-   - 创建 `campus-gateway`，添加启动类和基础配置。
-5. `chore: 添加核心业务服务模块`
-   - 创建 `campus-user`、`campus-product`、`campus-order` 的基础启动类和配置。
-6. `chore: 添加 AI 服务模块`
-   - 创建 `campus-ai`，只保留启动类和 mock AI 能力规划。
-7. `feat: 接入 Nacos 服务发现基础配置`
-   - 为 gateway、user、product、order、ai 添加 Nacos Discovery 配置。
-8. `feat: 添加 gateway 基础路由`
-   - 配置 gateway 转发到 user、product、order、ai 服务。
-9. `feat: 添加 OpenFeign 示例调用`
-   - 选择 product 调用 ai 或 order 调用 product，完成一个最小服务间调用示例。
-10. `docs: 更新第一阶段开发记录和架构说明`
-    - 更新 `docs/dev-log.md` 和 `docs/architecture.md`，记录已完成内容、运行方式和下一阶段计划。
+项目按功能阶段推进，而不是长期停留在一次只改一个微小文件的节奏。每个阶段围绕一个清晰的服务能力或基础设施能力展开，尽量同时补齐可运行代码、必要测试、接口文档和开发记录。
+
+当前已完成的早期阶段包括：
+
+1. 项目规划、Maven 多模块骨架和公共响应结构。
+2. `campus-user` 注册、登录、用户资料查询 mock 接口及对应测试和 API 文档。
+3. `campus-ai` 描述优化、分类预测、内容检查 mock 接口及对应测试和 API 文档。
 
 ## 开发原则
 
-- 每次只做一个小任务。
-- 每次修改都同步 README、dev-log 或 architecture。
-- 每次提交保持小步、清晰、可回滚。
+- 每个功能阶段都要有清晰边界，避免把无关服务混在一起修改。
+- 重要阶段收尾时同步 README、dev-log、API 文档或 architecture。
+- 每次提交保持聚焦、清晰、可回滚。
 - 先保证项目能运行，再扩展完整功能。
-- AI 服务第一版只使用 mock provider。
+- AI 服务第一版只使用确定性 mock provider。
 - 不引入过度复杂的中间件和抽象。
