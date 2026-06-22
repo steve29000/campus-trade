@@ -8,7 +8,6 @@ import com.campustrade.order.enums.OrderStatus;
 import com.campustrade.order.service.OrderService;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,7 +19,7 @@ class OrderControllerTest {
 
     @Test
     void createDelegatesToOrderService() {
-        OrderCreateRequest request = new OrderCreateRequest(2L, 1L, 10L, "iPad Air", BigDecimal.valueOf(2800));
+        OrderCreateRequest request = new OrderCreateRequest(2L, 1L, 10L);
 
         ApiResponse<OrderResponse> response = orderController.create(request);
 
@@ -82,7 +81,7 @@ class OrderControllerTest {
                 1L,
                 10L,
                 "iPad Air",
-                BigDecimal.valueOf(2800),
+                java.math.BigDecimal.valueOf(2800),
                 OrderStatus.CREATED
         );
 
@@ -90,6 +89,10 @@ class OrderControllerTest {
         private Long id;
         private Long buyerId;
         private Long sellerId;
+
+        private CapturingOrderService() {
+            super(null, null);
+        }
 
         @Override
         public ApiResponse<OrderResponse> create(OrderCreateRequest request) {

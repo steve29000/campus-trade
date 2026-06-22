@@ -1,13 +1,16 @@
 # campus-order API
 
-This document describes the current `campus-order` first-stage API. It is intended for local course-project demos and early integration notes before Swagger/Knife4j is added.
+This document describes the current `campus-order` API. It is intended for local course-project demos and early integration notes before Swagger/Knife4j is added.
 
 ## Current Phase Notes
 
 - Order data is stored in memory inside the running `campus-order` process only.
 - Created orders are lost when the service restarts.
 - This stage does not implement online payment. Campus second-hand trades remain offline face-to-face transactions.
-- This stage stores a lightweight product snapshot from the create-order request instead of calling `campus-product` or `campus-user` through OpenFeign.
+- Creating an order calls `campus-user` and `campus-product` through OpenFeign.
+- The client only submits `buyerId`, `sellerId`, and `productId`; `productTitle` and `price` are copied from the product service response.
+- After an order is created, `campus-order` calls `campus-product` to update the product status to `SOLD`.
+- For local manual testing, register the buyer and seller first, then publish the product with the same `sellerId` used by the order request.
 - Supported order status values are `CREATED`, `CANCELLED`, and `COMPLETED`.
 - Responses use the shared `ApiResponse` envelope:
 
@@ -25,7 +28,8 @@ The `code` field is an application-level response body code. The current skeleto
 
 `POST /order`
 
-Creates an in-memory order with a product snapshot. A new order starts with status `CREATED`.
+Creates an in-memory order after validating buyer, seller, and product through OpenFeign. A new order starts with status `CREATED`.
+The product is marked as `SOLD` after successful order creation, so the same product cannot be ordered again in the simple in-memory demo flow.
 
 ### Request
 
@@ -33,9 +37,7 @@ Creates an in-memory order with a product snapshot. A new order starts with stat
 {
   "buyerId": 2,
   "sellerId": 1,
-  "productId": 10,
-  "productTitle": "iPad Air",
-  "price": 2800
+  "productId": 10
 }
 ```
 
@@ -99,22 +101,72 @@ Missing product id:
 }
 ```
 
-Missing product title:
+Buyer does not exist:
 
 ```json
 {
-  "code": 400,
-  "message": "product title is required",
+  "code": 404,
+  "message": "buyer not found",
   "data": null
 }
 ```
 
-Missing or negative price:
+Seller does not exist:
+
+```json
+{
+  "code": 404,
+  "message": "seller not found",
+  "data": null
+}
+```
+
+Product does not exist:
+
+```json
+{
+  "code": 404,
+  "message": "product not found",
+  "data": null
+}
+```
+
+Product is not on sale:
 
 ```json
 {
   "code": 400,
-  "message": "price must be greater than or equal to 0",
+  "message": "product is not on sale",
+  "data": null
+}
+```
+
+Seller does not match product owner:
+
+```json
+{
+  "code": 400,
+  "message": "seller does not match product owner",
+  "data": null
+}
+```
+
+Product status update fails:
+
+```json
+{
+  "code": 500,
+  "message": "product status update failed",
+  "data": null
+}
+```
+
+Remote service unavailable:
+
+```json
+{
+  "code": 500,
+  "message": "remote service unavailable",
   "data": null
 }
 ```

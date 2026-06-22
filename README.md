@@ -84,7 +84,7 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 ## 当前运行方式
 
-当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类、`campus-user` 的注册/登录 mock/用户资料查询接口、`campus-ai` 的描述优化/分类预测/内容检查 mock 接口，`campus-product` 的内存版商品发布、浏览、详情查询和状态更新接口，`campus-order` 的内存版订单创建、查询、取消和完成接口，以及 `campus-gateway` 的基础路由转发配置。数据库持久化、JWT 鉴权、真实大模型接入、在线支付、CORS 自定义、Sentinel 和路径重写仍在后续阶段之外；校园交易默认线下面交。可以先执行：
+当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类、`campus-user` 的注册/登录 mock/用户资料查询接口、`campus-ai` 的描述优化/分类预测/内容检查 mock 接口，`campus-product` 的内存版商品发布、浏览、详情查询和状态更新接口，`campus-order` 的内存版订单创建、查询、取消和完成接口，以及 `campus-gateway` 的基础路由转发配置。`campus-order` 创建订单时已通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验买家、卖家和商品，并从商品服务生成订单商品快照；订单创建成功前会把商品状态更新为 `SOLD`，避免演示流程中重复下单。数据库持久化、JWT 鉴权、真实大模型接入、在线支付、CORS 自定义、Sentinel 和路径重写仍在后续阶段之外；校园交易默认线下面交。可以先执行：
 
 ```bash
 mvn test
@@ -96,7 +96,8 @@ mvn test
 "/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn" test
 ```
 
-后续接入 Nacos 后，再分别启动各服务模块。
+如果需要通过 gateway 验证订单创建的服务间调用，需要先启动 Nacos，再启动 `campus-user`、`campus-product`、`campus-order` 和 `campus-gateway`。
+手动创建订单前，需要先注册买家和卖家，再用卖家的 `sellerId` 发布商品，最后用同一个 `sellerId` 和商品 `productId` 创建订单。
 
 ## 接口文档
 
@@ -104,7 +105,7 @@ mvn test
 - [campus-user API](docs/api/user-service.md)：记录当前用户服务骨架接口，包括注册、登录和用户资料查询示例。当前用户数据仅保存在内存中，登录 token 为 mock-only。
 - [campus-ai API](docs/api/ai-service.md)：记录当前 AI mock 服务接口，包括描述优化、分类预测和内容检查示例。当前 AI provider 为确定性 mock-only 实现，不调用外部模型。
 - [campus-product API](docs/api/product-service.md)：记录当前商品服务第一阶段接口，包括商品发布、列表筛选、详情查询和状态更新示例。当前商品数据仅保存在内存中。
-- [campus-order API](docs/api/order-service.md)：记录当前订单服务第一阶段接口，包括订单创建、详情查询、买家/卖家订单列表、取消和完成示例。当前订单数据仅保存在内存中，不包含在线支付。
+- [campus-order API](docs/api/order-service.md)：记录当前订单服务接口，包括基于 OpenFeign 的订单创建校验、详情查询、买家/卖家订单列表、取消和完成示例。当前订单数据仅保存在内存中，不包含在线支付。
 
 ## 功能阶段开发方式
 
@@ -118,6 +119,7 @@ mvn test
 4. `campus-product` 商品发布、列表筛选、详情查询、状态更新内存版接口及 API 文档。
 5. `campus-order` 订单创建、详情查询、买家/卖家列表、取消、完成内存版接口及 API 文档。
 6. `campus-gateway` 基础路由表验证与网关路由文档。
+7. `campus-order` 通过 OpenFeign 调用 `campus-user` 和 `campus-product` 完成订单创建前校验。
 
 ## 开发原则
 

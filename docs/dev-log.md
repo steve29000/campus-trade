@@ -213,3 +213,24 @@
 - `@PathVariable` 建议显式写变量名，例如 `@PathVariable("id")`，避免编译参数未保留方法参数名时运行期绑定失败。
 - 中文 query 参数用 curl 测试时应使用 `--get --data-urlencode`，否则容易因为 URL 编码问题得到异常结果。
 - 当前阶段仍使用内存数据，不需要 MySQL 和 Redis；Nacos 是 gateway `lb://` 路由验证的必要依赖。
+
+## 2026-06-22：订单服务 OpenFeign 联调阶段
+
+### 本次完成
+
+- 为 `campus-order` 增加 `UserClient` 和 `ProductClient`，通过 OpenFeign 调用 `campus-user` 和 `campus-product`。
+- 调整订单创建请求，只保留 `buyerId`、`sellerId` 和 `productId`。
+- 创建订单时校验买家、卖家、商品是否存在，商品是否 `ON_SALE`，以及 `sellerId` 是否匹配商品发布者。
+- 订单响应中的 `productTitle` 和 `price` 改为来自商品服务返回的商品快照。
+- 为订单服务补充 Feign 联调相关单元测试，并修复 Feign 运行所需的 LoadBalancer 依赖。
+- 创建订单成功前会调用商品服务把商品状态改为 `SOLD`，避免同一商品在当前演示流程中重复下单。
+- 为 Feign 远程异常增加稳定的 `ApiResponse` 兜底，避免直接暴露框架 500。
+- 更新订单 API 文档、README 和架构文档，避免继续把 OpenFeign 写成后续计划。
+
+### 学到的内容
+
+- OpenFeign 使用服务名进行负载均衡时，需要 `spring-cloud-starter-loadbalancer` 支持。
+- 服务间调用不应该直接复用其他业务模块的 DTO，可以在调用方模块维护最小 client DTO，降低模块耦合。
+- 订单创建不能信任客户端传入的商品标题和价格，应由订单服务调用商品服务生成快照。
+- 增加跨服务校验后，测试数据也要符合业务规则，例如订单的 `sellerId` 必须匹配商品发布者。
+- Java 包装类型比较要使用 `.equals`，不能用 `Integer == Integer`；本地构造对象和远程 JSON 反序列化对象可能不是同一个引用。

@@ -35,18 +35,18 @@ class OrderControllerWebTest {
                                 {
                                   "buyerId": 2,
                                   "sellerId": 1,
-                                  "productId": 10,
-                                  "productTitle": "iPad Air",
-                                  "price": 2800
+                                  "productId": 10
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.productTitle").value("iPad Air"))
+                .andExpect(jsonPath("$.data.price").value(2800))
                 .andExpect(jsonPath("$.data.status").value("CREATED"));
 
         assertThat(orderService.createRequest.buyerId()).isEqualTo(2L);
-        assertThat(orderService.createRequest.price()).isEqualByComparingTo(BigDecimal.valueOf(2800));
+        assertThat(orderService.createRequest.sellerId()).isEqualTo(1L);
+        assertThat(orderService.createRequest.productId()).isEqualTo(10L);
     }
 
     @Test
@@ -106,11 +106,15 @@ class OrderControllerWebTest {
         private Long buyerId;
         private Long sellerId;
 
+        private CapturingOrderService() {
+            super(null, null);
+        }
+
         @Override
         public ApiResponse<OrderResponse> create(OrderCreateRequest request) {
             this.createRequest = request;
             return ApiResponse.success(order(request.buyerId(), request.sellerId(), request.productId(),
-                    request.productTitle(), request.price(), OrderStatus.CREATED));
+                    "iPad Air", BigDecimal.valueOf(2800), OrderStatus.CREATED));
         }
 
         @Override
