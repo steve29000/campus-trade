@@ -304,3 +304,22 @@
 - 隐藏和删除是两种不同的下线方式：隐藏保留数据只是不展示，删除直接移除，应该在接口语义上区分清楚。
 - 复用订单服务的跨服务校验模式（client DTO + try/catch 远程异常 + 统一兜底），可以让新服务快速达到一致的健壮性。
 - 列表查询默认过滤掉隐藏内容，避免被隐藏的留言继续出现在商品页。
+
+## 2026-06-22：持久化阶段（MySQL + MyBatis Plus）
+
+### 本次完成
+
+- 为 `campus-user`、`campus-product`、`campus-order`、`campus-message` 接入 MyBatis Plus + MySQL，采用每服务独立库（`campus_user_db`/`campus_product_db`/`campus_order_db`/`campus_message_db`），内存存储全部替换为数据库表。
+- 每个服务新增 Entity（`@TableId(IdType.AUTO)` 自增主键）和 Mapper（`BaseMapper`），启动类加 `@MapperScan`，`application.yml` 配置 MySQL 数据源与 MyBatis Plus。
+- 枚举统一用全局 `EnumTypeHandler` 按名称存为 VARCHAR；订单表名用 `orders` 规避保留字；商品列表关键词用 `LOWER(...) LIKE` 做大小写不敏感匹配。
+- 父 pom 统一管理 mybatis-plus 版本；新增 `docs/sql/schema.sql` 建库建表脚本。
+- service 层测试改为 Spring 上下文 + H2（MySQL 兼容模式）跑真实 SQL；带 Feign 的服务用真实 Mapper + 假 client 组装，规避 Feign 默认 `@Primary` bean 冲突。
+- 用 Docker 起本地 MySQL 8，跑通整条跨服务链路（注册→发布→下单→留言）并核对四个库真实落库。
+
+### 学到的内容
+
+- JDBC URL 的 `characterEncoding` 要填 Java 字符集名（`UTF-8`），不能填 MySQL 的 `utf8mb4`，否则报 Unsupported character encoding。
+- H2 把 `USER` 当保留字，测试库需要 `NON_KEYWORDS=USER` 才能用 `user` 表名。
+- Spring Cloud 的 Feign client bean 默认是 `@Primary`，测试里再注册 `@Primary` 假 bean 会冲突；可改用「真实 Mapper + 直接 new service 注入假 client」的方式。
+- 数据库化后主键由数据库自增生成，插入后回填到实体；不再依赖应用内的自增计数器。
+- 微服务用服务名调用时，注册到 Nacos 的实例 IP 必须可达；机器换网络后旧实例会带着失效 IP 注册，需要重启服务重新注册。

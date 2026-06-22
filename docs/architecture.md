@@ -190,15 +190,29 @@ campus-gateway
 
 ## 6. 数据库规划
 
-第一阶段可以为每个服务保留独立数据库命名，后续根据实现逐步创建表。
+`campus-user`、`campus-product`、`campus-order`、`campus-message` 已接入 MyBatis Plus + MySQL，采用**每服务独立库**，内存存储已全部替换为数据库表。`campus-ai` 为无状态 mock，不使用数据库。
 
-推荐数据库：
+当前数据库与主表：
 
-- campus_user_db
-- campus_product_db
-- campus_order_db
-- campus_message_db
-- campus_ai_db 可选，mock 阶段可以不建库
+- `campus_user_db.user`
+- `campus_product_db.product`
+- `campus_order_db.orders`（`order` 为保留字，表名用 `orders`）
+- `campus_message_db.message`
+- campus_ai_db 不需要
+
+建库建表脚本见 [`docs/sql/schema.sql`](sql/schema.sql)。本地用 Docker 运行 MySQL，可执行：
+
+```bash
+docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
+```
+
+实现要点：
+
+- 主键为 BIGINT 自增（`@TableId(IdType.AUTO)`），替换原先的内存自增 id。
+- 枚举（`ProductStatus`/`OrderStatus`/`MessageStatus`）通过全局 `EnumTypeHandler` 按名称存为 VARCHAR。
+- 不建跨库外键；买家/卖家/商品/发送者的存在性仍由 OpenFeign 在 service 层校验，保持服务库独立。
+- 单元测试使用 H2（MySQL 兼容模式）跑真实 SQL，运行时连接 MySQL。
+- 数据源连接信息当前写在各服务 `application.yml`，后续可迁移到 Nacos 配置中心或环境变量。
 
 ## 7. AI 服务设计
 

@@ -84,20 +84,34 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 ## 当前运行方式
 
-当前阶段包含 Maven 多模块骨架、最小 Spring Boot 启动类、`campus-user` 的注册/登录 mock/用户资料查询接口、`campus-ai` 的描述优化/分类预测/内容检查 mock 接口，`campus-product` 的内存版商品发布、浏览、详情查询和状态更新接口，`campus-order` 的内存版订单创建、查询、取消和完成接口，以及 `campus-gateway` 的基础路由转发配置。`campus-order` 创建订单时已通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验买家、卖家和商品，并从商品服务生成订单商品快照；订单创建成功前会把商品状态更新为 `SOLD`，避免演示流程中重复下单。数据库持久化、JWT 鉴权、真实大模型接入、在线支付、CORS 自定义、Sentinel 和路径重写仍在后续阶段之外；校园交易默认线下面交。可以先执行：
+当前阶段包含 Maven 多模块骨架、`campus-user` 的注册/登录 mock/用户资料查询接口、`campus-ai` 的描述优化/分类预测/内容检查 mock 接口、`campus-product` 的商品发布/浏览/详情/状态更新接口、`campus-order` 的订单创建/查询/取消/完成接口、`campus-message` 的留言发布/查询/隐藏/删除接口，以及 `campus-gateway` 的基础路由转发配置。`campus-product` 发布时通过 OpenFeign 调用 `campus-ai` 做内容安全检查；`campus-order` 创建订单时通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验买家、卖家、商品并生成商品快照，下单成功前把商品状态更新为 `SOLD`，取消订单时回滚为 `ON_SALE`；`campus-message` 发布留言时校验发送者和商品。
+
+`campus-user`、`campus-product`、`campus-order`、`campus-message` 已接入 **MyBatis Plus + MySQL（每服务独立库）**，数据真正落库；`campus-ai` 为无状态 mock，不用数据库。JWT 鉴权、真实大模型接入、在线支付、CORS 自定义、Sentinel 和路径重写仍在后续阶段之外；校园交易默认线下面交。
+
+不需要数据库即可执行单元测试（持久化层测试用 H2 内存库）：
 
 ```bash
 mvn test
 ```
 
-如果终端提示 `mvn: command not found`，在本机 macOS + IntelliJ IDEA 环境中，可以先使用 IntelliJ IDEA 自带的 Maven：
+如果终端提示 `mvn: command not found`，在本机 macOS + IntelliJ IDEA 环境中，可以使用 IntelliJ IDEA 自带的 Maven：
 
 ```bash
 "/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn" test
 ```
 
-如果需要通过 gateway 验证订单创建的服务间调用，需要先启动 Nacos，再启动 `campus-user`、`campus-product`、`campus-order` 和 `campus-gateway`。
-手动创建订单前，需要先注册买家和卖家，再用卖家的 `sellerId` 发布商品，最后用同一个 `sellerId` 和商品 `productId` 创建订单。
+如果要真实运行整套服务，需要先准备 MySQL 和 Nacos：
+
+```bash
+# 1. 启动 MySQL（Docker），并建库建表
+docker run -d --name campus-mysql -e MYSQL_ROOT_PASSWORD=campus1234 -p 3306:3306 mysql:8.0
+docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
+
+# 2. 启动 Nacos（服务注册发现）后，依次启动各服务
+#    campus-user / campus-product / campus-order / campus-message / campus-ai / campus-gateway
+```
+
+各服务默认数据源为 `localhost:3306`、账号 `root`、密码 `campus1234`，可在各自的 `application.yml` 中调整。手动体验下单链路：先注册买家和卖家，再用卖家的 `sellerId` 发布商品，最后用同一个 `sellerId` 和商品 `productId` 创建订单。
 
 ## 接口文档
 
@@ -122,7 +136,9 @@ mvn test
 6. `campus-gateway` 基础路由表验证与网关路由文档。
 7. `campus-order` 通过 OpenFeign 调用 `campus-user` 和 `campus-product` 完成订单创建前校验。
 8. `campus-product` 商品发布通过 OpenFeign 调用 `campus-ai` 完成内容安全检查。
-9. `campus-message` 留言发布、按商品查询、隐藏、删除内存版接口，通过 OpenFeign 校验发送者和商品。
+9. `campus-message` 留言发布、按商品查询、隐藏、删除接口，通过 OpenFeign 校验发送者和商品。
+10. `campus-common` 全局异常处理（自动配置，servlet 服务统一兜底，gateway 安全跳过）。
+11. `campus-user`、`campus-product`、`campus-order`、`campus-message` 接入 MyBatis Plus + MySQL（每服务独立库），内存存储替换为数据库。
 
 ## 开发原则
 
