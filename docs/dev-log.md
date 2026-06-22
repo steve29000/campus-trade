@@ -196,3 +196,20 @@
 - `lb://service-id` 路由能把网关和具体实例地址解耦，更适合后续接入 Nacos Discovery。
 - `lb://` 路由除了写配置，还需要 Spring Cloud LoadBalancer 运行时支持；测试不能只看 YAML 是否绑定成功。
 - 网关文档需要同时写清楚“已经能转发什么”和“暂时不会处理什么”，这样后续联调时边界更明确。
+
+## 2026-06-22：本地运行验证与 Gateway 冒烟测试
+
+### 本次完成
+
+- 使用 Docker Desktop 启动本地 Nacos standalone 容器，验证服务注册发现可用。
+- 启动 `campus-user`、`campus-product`、`campus-order`、`campus-ai` 和 `campus-gateway` 五个服务。
+- 通过 gateway 跑通用户注册登录、商品发布查询、订单创建查询和 AI mock 接口。
+- 修复 `campus-user` 的 `/user/{id}` 路径变量绑定问题。
+- 为 `campus-user` 新增 Web 层测试，覆盖注册、登录和用户详情路径绑定。
+
+### 学到的内容
+
+- 直连服务接口通过，不代表 gateway 链路一定通过，微服务项目需要分别验证单服务和网关入口。
+- `@PathVariable` 建议显式写变量名，例如 `@PathVariable("id")`，避免编译参数未保留方法参数名时运行期绑定失败。
+- 中文 query 参数用 curl 测试时应使用 `--get --data-urlencode`，否则容易因为 URL 编码问题得到异常结果。
+- 当前阶段仍使用内存数据，不需要 MySQL 和 Redis；Nacos 是 gateway `lb://` 路由验证的必要依赖。

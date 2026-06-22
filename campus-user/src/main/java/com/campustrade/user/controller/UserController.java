@@ -34,7 +34,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<UserProfileResponse> findProfile(@PathVariable Long id) {
+    public ApiResponse<UserProfileResponse> findProfile(@PathVariable("id") Long id) {
         return userService.findProfile(id);
     }
 }
