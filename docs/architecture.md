@@ -53,13 +53,22 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 
 系统统一入口。
 
-职责：
+当前职责：
 
 - 路由转发
-- 跨域配置
-- JWT 鉴权入口
-- 统一请求日志
-- 后续接入限流策略
+
+当前网关路由表：
+
+| Public Path | Service ID | Target URI |
+| --- | --- | --- |
+| `/user/**` | `campus-user` | `lb://campus-user` |
+| `/product/**` | `campus-product` | `lb://campus-product` |
+| `/order/**` | `campus-order` | `lb://campus-order` |
+| `/ai/**` | `campus-ai` | `lb://campus-ai` |
+| `/message/**` | `campus-message` | `lb://campus-message` |
+
+当前阶段 `campus-gateway` 只负责把请求按照路径转发到对应服务，暂不做路径重写。JWT 鉴权、CORS 自定义、Sentinel 限流/降级和更完整的统一请求日志会在后续阶段逐步接入。
+`lb://` 目标地址依赖 Spring Cloud LoadBalancer 和服务发现能力，当前测试会校验路由表以及 LoadBalancer 运行时支持是否存在。
 
 ### campus-user
 
