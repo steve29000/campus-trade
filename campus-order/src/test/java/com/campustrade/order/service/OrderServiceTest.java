@@ -11,18 +11,35 @@ import com.campustrade.order.client.enums.ProductClientStatus;
 import com.campustrade.order.dto.OrderCreateRequest;
 import com.campustrade.order.dto.OrderResponse;
 import com.campustrade.order.enums.OrderStatus;
+import com.campustrade.order.mapper.OrderMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@Transactional
 class OrderServiceTest {
+
+    @Autowired
+    private OrderMapper orderMapper;
 
     private final FakeUserClient userClient = new FakeUserClient();
     private final FakeProductClient productClient = new FakeProductClient();
-    private final OrderService orderService = new OrderService(userClient, productClient);
+    private OrderService orderService;
+
+    @BeforeEach
+    void setUp() {
+        // 用真实的 OrderMapper（参与测试事务，跑 H2）+ 假的 Feign client 组装 service，
+        // 避免与 Spring Cloud 默认 @Primary 的 Feign client bean 冲突。
+        orderService = new OrderService(userClient, productClient, orderMapper);
+    }
 
     @Test
     void createLoadsProductSnapshotFromProductService() {

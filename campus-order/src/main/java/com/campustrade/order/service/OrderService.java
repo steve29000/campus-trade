@@ -1,5 +1,6 @@
 package com.campustrade.order.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campustrade.common.response.ApiResponse;
 import com.campustrade.common.response.ResultCode;
 import com.campustrade.order.client.ProductClient;
@@ -10,26 +11,24 @@ import com.campustrade.order.client.dto.UserProfileClientResponse;
 import com.campustrade.order.client.enums.ProductClientStatus;
 import com.campustrade.order.dto.OrderCreateRequest;
 import com.campustrade.order.dto.OrderResponse;
+import com.campustrade.order.entity.OrderEntity;
 import com.campustrade.order.enums.OrderStatus;
+import com.campustrade.order.mapper.OrderMapper;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class OrderService {
 
     private final UserClient userClient;
     private final ProductClient productClient;
-    private final AtomicLong idGenerator = new AtomicLong(1);
-    private final Map<Long, OrderResponse> ordersById = new ConcurrentHashMap<>();
+    private final OrderMapper orderMapper;
 
-    public OrderService(UserClient userClient, ProductClient productClient) {
+    public OrderService(UserClient userClient, ProductClient productClient, OrderMapper orderMapper) {
         this.userClient = userClient;
         this.productClient = productClient;
+        this.orderMapper = orderMapper;
     }
 
     public ApiResponse<OrderResponse> create(OrderCreateRequest request) {
@@ -89,28 +88,25 @@ public class OrderService {
             return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "product status update failed");
         }
 
-        Long id = idGenerator.getAndIncrement();
-        OrderResponse order = new OrderResponse(
-                id,
-                request.buyerId(),
-                request.sellerId(),
-                request.productId(),
-                product.title(),
-                product.price(),
-                OrderStatus.CREATED
-        );
-        ordersById.put(id, order);
+        OrderEntity order = new OrderEntity();
+        order.setBuyerId(request.buyerId());
+        order.setSellerId(request.sellerId());
+        order.setProductId(request.productId());
+        order.setProductTitle(product.title());
+        order.setPrice(product.price());
+        order.setStatus(OrderStatus.CREATED);
+        orderMapper.insert(order);
 
-        return ApiResponse.success(order);
+        return ApiResponse.success(toResponse(order));
     }
 
     public ApiResponse<OrderResponse> findById(Long id) {
-        OrderResponse order = ordersById.get(id);
+        OrderEntity order = orderMapper.selectById(id);
         if (order == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "order not found");
         }
 
-        return ApiResponse.success(order);
+        return ApiResponse.success(toResponse(order));
     }
 
     public ApiResponse<List<OrderResponse>> listByBuyerId(Long buyerId) {
@@ -118,9 +114,12 @@ public class OrderService {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "buyer id is required");
         }
 
-        List<OrderResponse> orders = ordersById.values().stream()
-                .filter(order -> order.buyerId().equals(buyerId))
-                .sorted(Comparator.comparing(OrderResponse::id))
+        List<OrderResponse> orders = orderMapper.selectList(
+                        new LambdaQueryWrapper<OrderEntity>()
+                                .eq(OrderEntity::getBuyerId, buyerId)
+                                .orderByAsc(OrderEntity::getId))
+                .stream()
+                .map(this::toResponse)
                 .toList();
 
         return ApiResponse.success(orders);
@@ -131,32 +130,35 @@ public class OrderService {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "seller id is required");
         }
 
-        List<OrderResponse> orders = ordersById.values().stream()
-                .filter(order -> order.sellerId().equals(sellerId))
-                .sorted(Comparator.comparing(OrderResponse::id))
+        List<OrderResponse> orders = orderMapper.selectList(
+                        new LambdaQueryWrapper<OrderEntity>()
+                                .eq(OrderEntity::getSellerId, sellerId)
+                                .orderByAsc(OrderEntity::getId))
+                .stream()
+                .map(this::toResponse)
                 .toList();
 
         return ApiResponse.success(orders);
     }
 
     public ApiResponse<OrderResponse> cancel(Long id) {
-        OrderResponse order = ordersById.get(id);
+        OrderEntity order = orderMapper.selectById(id);
         if (order == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "order not found");
         }
-        if (order.status() == OrderStatus.COMPLETED) {
+        if (order.getStatus() == OrderStatus.COMPLETED) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "completed order cannot be cancelled");
         }
-        if (order.status() == OrderStatus.CANCELLED) {
+        if (order.getStatus() == OrderStatus.CANCELLED) {
             // 已取消则幂等返回，避免重复把商品状态改回 ON_SALE。
-            return ApiResponse.success(order);
+            return ApiResponse.success(toResponse(order));
         }
 
         // 取消订单时把商品状态从 SOLD 回滚为 ON_SALE，让商品可以被再次购买。
         ApiResponse<ProductClientResponse> restoreResponse;
         try {
             restoreResponse = productClient.updateStatus(
-                    order.productId(),
+                    order.getProductId(),
                     new ProductStatusUpdateClientRequest(ProductClientStatus.ON_SALE.name())
             );
         } catch (RuntimeException exception) {
@@ -166,25 +168,25 @@ public class OrderService {
             return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "product status restore failed");
         }
 
-        OrderResponse updated = withStatus(order, OrderStatus.CANCELLED);
-        ordersById.put(id, updated);
+        order.setStatus(OrderStatus.CANCELLED);
+        orderMapper.updateById(order);
 
-        return ApiResponse.success(updated);
+        return ApiResponse.success(toResponse(order));
     }
 
     public ApiResponse<OrderResponse> complete(Long id) {
-        OrderResponse order = ordersById.get(id);
+        OrderEntity order = orderMapper.selectById(id);
         if (order == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "order not found");
         }
-        if (order.status() == OrderStatus.CANCELLED) {
+        if (order.getStatus() == OrderStatus.CANCELLED) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "cancelled order cannot be completed");
         }
 
-        OrderResponse updated = withStatus(order, OrderStatus.COMPLETED);
-        ordersById.put(id, updated);
+        order.setStatus(OrderStatus.COMPLETED);
+        orderMapper.updateById(order);
 
-        return ApiResponse.success(updated);
+        return ApiResponse.success(toResponse(order));
     }
 
     private ApiResponse<OrderResponse> validateCreateRequest(OrderCreateRequest request) {
@@ -210,15 +212,15 @@ public class OrderService {
                 && response.data() != null;
     }
 
-    private OrderResponse withStatus(OrderResponse order, OrderStatus status) {
+    private OrderResponse toResponse(OrderEntity order) {
         return new OrderResponse(
-                order.id(),
-                order.buyerId(),
-                order.sellerId(),
-                order.productId(),
-                order.productTitle(),
-                order.price(),
-                status
+                order.getId(),
+                order.getBuyerId(),
+                order.getSellerId(),
+                order.getProductId(),
+                order.getProductTitle(),
+                order.getPrice(),
+                order.getStatus()
         );
     }
 

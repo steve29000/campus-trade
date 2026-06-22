@@ -91,7 +91,7 @@ class OrderControllerTest {
         private Long sellerId;
 
         private CapturingOrderService() {
-            super(null, null);
+            super(null, null, null);
         }
 
         @Override
