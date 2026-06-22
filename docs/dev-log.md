@@ -268,3 +268,21 @@
 - 跨服务的状态变更要成对考虑：创建订单把商品改成 `SOLD`，取消订单就必须把它改回去，否则会出现“商品被锁死、永远买不了”的数据不一致。
 - 远程回滚失败时不能把订单本地状态改掉，否则会出现订单已取消但商品仍是 `SOLD` 的不一致；先确认远程成功再改本地。
 - 幂等性在涉及远程副作用的操作里很重要，重复取消不应触发第二次商品回滚。
+
+## 2026-06-22：商品发布接入 campus-ai 内容审核
+
+### 本次完成
+
+- 为 `campus-product` 增加 `AiClient`，通过 OpenFeign 调用 `campus-ai` 的内容检查接口。
+- 商品发布在字段校验之后、写入之前调用内容检查：命中违规返回 `FORBIDDEN` 并附带原因，AI 服务异常或返回失败返回 `SYSTEM_ERROR`。
+- 在调用方模块维护最小 client DTO（`ContentCheckClientRequest`/`ContentCheckClientResponse`），不直接依赖 AI 模块的 DTO。
+- 为 `campus-product` 补充 Feign 运行所需的 `spring-cloud-starter-loadbalancer` 依赖。
+- 调整 `ProductService` 为构造注入，并更新相关单元测试，新增内容审核相关用例。
+- 更新商品 API 文档、架构文档和工作留痕。
+
+### 学到的内容
+
+- 内容安全检查应在字段校验之后执行，避免对明显非法的请求浪费一次跨服务调用。
+- 跨服务的拒绝原因应透传给调用方（这里把 AI 的违规原因放进响应 message），方便前端展示。
+- 引入构造注入会破坏 `new Service()` 形式的测试，需要同步更新 service 测试和继承式 Capturing 测试桩的 `super(...)`。
+- 商品服务以服务名调用 `campus-ai` 同样依赖 `spring-cloud-starter-loadbalancer`，和订单服务接入 Feign 时遇到的依赖问题一致。

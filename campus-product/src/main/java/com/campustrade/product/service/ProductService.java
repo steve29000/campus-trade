@@ -2,6 +2,9 @@ package com.campustrade.product.service;
 
 import com.campustrade.common.response.ApiResponse;
 import com.campustrade.common.response.ResultCode;
+import com.campustrade.product.client.AiClient;
+import com.campustrade.product.client.dto.ContentCheckClientRequest;
+import com.campustrade.product.client.dto.ContentCheckClientResponse;
 import com.campustrade.product.dto.ProductCreateRequest;
 import com.campustrade.product.dto.ProductResponse;
 import com.campustrade.product.dto.ProductStatusUpdateRequest;
@@ -19,8 +22,13 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 public class ProductService {
 
+    private final AiClient aiClient;
     private final AtomicLong idGenerator = new AtomicLong(1);
     private final Map<Long, ProductResponse> productsById = new ConcurrentHashMap<>();
+
+    public ProductService(AiClient aiClient) {
+        this.aiClient = aiClient;
+    }
 
     public ApiResponse<ProductResponse> publish(ProductCreateRequest request) {
         if (request == null || request.sellerId() == null) {
@@ -31,6 +39,12 @@ public class ProductService {
         }
         if (request.price() == null || request.price().compareTo(BigDecimal.ZERO) < 0) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "price must be greater than or equal to 0");
+        }
+
+        // 发布前调用 campus-ai 做内容安全检查，命中违规关键词时拒绝发布。
+        ApiResponse<ProductResponse> contentRejection = checkContent(request);
+        if (contentRejection != null) {
+            return contentRejection;
         }
 
         Long id = idGenerator.getAndIncrement();
@@ -103,6 +117,35 @@ public class ProductService {
         productsById.put(id, updated);
 
         return ApiResponse.success(updated);
+    }
+
+    /**
+     * 调用 campus-ai 内容检查。通过返回 {@code null}；命中违规或远程异常时返回对应的失败响应。
+     */
+    private ApiResponse<ProductResponse> checkContent(ProductCreateRequest request) {
+        String content = request.title().trim() + " " + request.description().trim();
+
+        ApiResponse<ContentCheckClientResponse> response;
+        try {
+            response = aiClient.checkContent(new ContentCheckClientRequest(content));
+        } catch (RuntimeException exception) {
+            return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
+        }
+
+        boolean successWithData = response != null
+                && ResultCode.SUCCESS.getCode().equals(response.code())
+                && response.data() != null;
+        if (!successWithData) {
+            return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "content check failed");
+        }
+
+        ContentCheckClientResponse result = response.data();
+        if (!Boolean.TRUE.equals(result.passed())) {
+            String reason = isBlank(result.reason()) ? "content rejected by safety check" : result.reason();
+            return ApiResponse.fail(ResultCode.FORBIDDEN, reason);
+        }
+
+        return null;
     }
 
     private boolean matchesKeyword(ProductResponse product, String keyword) {

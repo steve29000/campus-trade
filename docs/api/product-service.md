@@ -26,6 +26,8 @@ The `code` field is an application-level response body code. The current skeleto
 
 Creates an in-memory product listing. A new product starts with status `ON_SALE`.
 
+Before the product is stored, `campus-product` calls `campus-ai` (`POST /ai/content/check`) with the title and description joined together. If the content fails the mock safety check, the publish is rejected with `FORBIDDEN` and the rejection reason from the AI service. If the AI service is unreachable or returns an error, the publish is rejected with `SYSTEM_ERROR`. Field validation runs first, so a request that fails validation never reaches the AI service.
+
 ### Request
 
 ```json
@@ -84,6 +86,18 @@ Missing or negative price:
 {
   "code": 400,
   "message": "price must be greater than or equal to 0",
+  "data": null
+}
+```
+
+### Example Content Safety Failure
+
+Content that hits a prohibited keyword (returned by `campus-ai`):
+
+```json
+{
+  "code": 403,
+  "message": "content contains prohibited keyword: 枪",
   "data": null
 }
 ```

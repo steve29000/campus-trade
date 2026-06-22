@@ -84,6 +84,10 @@ class ProductControllerWebTest {
 
     private static class CapturingProductService extends ProductService {
 
+        private CapturingProductService() {
+            super(null);
+        }
+
         private ProductCreateRequest createRequest;
         private ProductStatusUpdateRequest statusRequest;
         private Long id;
