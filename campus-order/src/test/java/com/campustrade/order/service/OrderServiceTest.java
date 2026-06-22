@@ -241,6 +241,55 @@ class OrderServiceTest {
     }
 
     @Test
+    void cancelRestoresProductToOnSale() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+        assertThat(productClient.statusOf(10L)).isEqualTo(ProductClientStatus.SOLD);
+
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+
+        assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
+        assertThat(response.data().status()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(productClient.statusOf(10L)).isEqualTo(ProductClientStatus.ON_SALE);
+    }
+
+    @Test
+    void cancelReturnsSystemErrorWhenProductRestoreFails() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+        productClient.failStatusUpdate = true;
+
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+
+        assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
+        assertThat(response.message()).isEqualTo("product status restore failed");
+        assertThat(response.data()).isNull();
+        assertThat(orderService.findById(created.id()).data().status()).isEqualTo(OrderStatus.CREATED);
+    }
+
+    @Test
+    void cancelReturnsSystemErrorWhenProductServiceThrowsDuringRestore() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+        productClient.throwException = true;
+
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+
+        assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
+        assertThat(response.message()).isEqualTo("remote service unavailable");
+        assertThat(response.data()).isNull();
+    }
+
+    @Test
+    void cancelIsIdempotentWhenAlreadyCancelled() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+        orderService.cancel(created.id());
+
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+
+        assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
+        assertThat(response.data().status()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(productClient.statusOf(10L)).isEqualTo(ProductClientStatus.ON_SALE);
+    }
+
+    @Test
     void cancelRejectsCompletedOrder() {
         OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
         orderService.complete(created.id());

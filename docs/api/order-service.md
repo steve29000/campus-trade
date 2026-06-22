@@ -307,6 +307,8 @@ Missing seller id:
 
 Cancels an order in the current in-memory store. A completed order cannot be cancelled.
 
+When a non-cancelled order is cancelled, `campus-order` calls `campus-product` to restore the product status from `SOLD` back to `ON_SALE`, so the product can be ordered again. Cancelling an already-cancelled order is idempotent and does not call the product service again. If the product status restore fails, the cancel returns `SYSTEM_ERROR` and the order stays `CREATED`.
+
 ### Path Parameters
 
 | Name | Type | Description |

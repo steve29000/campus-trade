@@ -147,6 +147,24 @@ public class OrderService {
         if (order.status() == OrderStatus.COMPLETED) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "completed order cannot be cancelled");
         }
+        if (order.status() == OrderStatus.CANCELLED) {
+            // 已取消则幂等返回，避免重复把商品状态改回 ON_SALE。
+            return ApiResponse.success(order);
+        }
+
+        // 取消订单时把商品状态从 SOLD 回滚为 ON_SALE，让商品可以被再次购买。
+        ApiResponse<ProductClientResponse> restoreResponse;
+        try {
+            restoreResponse = productClient.updateStatus(
+                    order.productId(),
+                    new ProductStatusUpdateClientRequest(ProductClientStatus.ON_SALE.name())
+            );
+        } catch (RuntimeException exception) {
+            return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
+        }
+        if (!isSuccessWithData(restoreResponse)) {
+            return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "product status restore failed");
+        }
 
         OrderResponse updated = withStatus(order, OrderStatus.CANCELLED);
         ordersById.put(id, updated);
