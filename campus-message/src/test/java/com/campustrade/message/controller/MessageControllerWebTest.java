@@ -85,7 +85,7 @@ class MessageControllerWebTest {
         private Long id;
 
         private CapturingMessageService() {
-            super(null, null);
+            super(null, null, null);
         }
 
         @Override

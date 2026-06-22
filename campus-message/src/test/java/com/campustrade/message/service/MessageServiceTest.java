@@ -9,18 +9,35 @@ import com.campustrade.message.client.dto.UserProfileClientResponse;
 import com.campustrade.message.dto.MessageCreateRequest;
 import com.campustrade.message.dto.MessageResponse;
 import com.campustrade.message.enums.MessageStatus;
+import com.campustrade.message.mapper.MessageMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@Transactional
 class MessageServiceTest {
+
+    @Autowired
+    private MessageMapper messageMapper;
 
     private final FakeUserClient userClient = new FakeUserClient();
     private final FakeProductClient productClient = new FakeProductClient();
-    private final MessageService messageService = new MessageService(userClient, productClient);
+    private MessageService messageService;
+
+    @BeforeEach
+    void setUp() {
+        // 真实 MessageMapper（参与测试事务，跑 H2）+ 假的 Feign client 组装 service，
+        // 避免与 Spring Cloud 默认 @Primary 的 Feign client bean 冲突。
+        messageService = new MessageService(userClient, productClient, messageMapper);
+    }
 
     @Test
     void postCreatesVisibleMessage() {

@@ -1,5 +1,6 @@
 package com.campustrade.message.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campustrade.common.response.ApiResponse;
 import com.campustrade.common.response.ResultCode;
 import com.campustrade.message.client.ProductClient;
@@ -8,26 +9,24 @@ import com.campustrade.message.client.dto.ProductClientResponse;
 import com.campustrade.message.client.dto.UserProfileClientResponse;
 import com.campustrade.message.dto.MessageCreateRequest;
 import com.campustrade.message.dto.MessageResponse;
+import com.campustrade.message.entity.MessageEntity;
 import com.campustrade.message.enums.MessageStatus;
+import com.campustrade.message.mapper.MessageMapper;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class MessageService {
 
     private final UserClient userClient;
     private final ProductClient productClient;
-    private final AtomicLong idGenerator = new AtomicLong(1);
-    private final Map<Long, MessageResponse> messagesById = new ConcurrentHashMap<>();
+    private final MessageMapper messageMapper;
 
-    public MessageService(UserClient userClient, ProductClient productClient) {
+    public MessageService(UserClient userClient, ProductClient productClient, MessageMapper messageMapper) {
         this.userClient = userClient;
         this.productClient = productClient;
+        this.messageMapper = messageMapper;
     }
 
     public ApiResponse<MessageResponse> post(MessageCreateRequest request) {
@@ -61,17 +60,14 @@ public class MessageService {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "product not found");
         }
 
-        Long id = idGenerator.getAndIncrement();
-        MessageResponse message = new MessageResponse(
-                id,
-                request.productId(),
-                request.senderId(),
-                request.content().trim(),
-                MessageStatus.VISIBLE
-        );
-        messagesById.put(id, message);
+        MessageEntity message = new MessageEntity();
+        message.setProductId(request.productId());
+        message.setSenderId(request.senderId());
+        message.setContent(request.content().trim());
+        message.setStatus(MessageStatus.VISIBLE);
+        messageMapper.insert(message);
 
-        return ApiResponse.success(message);
+        return ApiResponse.success(toResponse(message));
     }
 
     public ApiResponse<List<MessageResponse>> listByProductId(Long productId) {
@@ -79,39 +75,36 @@ public class MessageService {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "product id is required");
         }
 
-        List<MessageResponse> messages = messagesById.values().stream()
-                .filter(message -> message.productId().equals(productId))
-                .filter(message -> message.status() == MessageStatus.VISIBLE)
-                .sorted(Comparator.comparing(MessageResponse::id))
+        List<MessageResponse> messages = messageMapper.selectList(
+                        new LambdaQueryWrapper<MessageEntity>()
+                                .eq(MessageEntity::getProductId, productId)
+                                .eq(MessageEntity::getStatus, MessageStatus.VISIBLE)
+                                .orderByAsc(MessageEntity::getId))
+                .stream()
+                .map(this::toResponse)
                 .toList();
 
         return ApiResponse.success(messages);
     }
 
     public ApiResponse<MessageResponse> hide(Long id) {
-        MessageResponse message = messagesById.get(id);
+        MessageEntity message = messageMapper.selectById(id);
         if (message == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "message not found");
         }
-        if (message.status() == MessageStatus.HIDDEN) {
-            return ApiResponse.success(message);
+        if (message.getStatus() == MessageStatus.HIDDEN) {
+            return ApiResponse.success(toResponse(message));
         }
 
-        MessageResponse updated = new MessageResponse(
-                message.id(),
-                message.productId(),
-                message.senderId(),
-                message.content(),
-                MessageStatus.HIDDEN
-        );
-        messagesById.put(id, updated);
+        message.setStatus(MessageStatus.HIDDEN);
+        messageMapper.updateById(message);
 
-        return ApiResponse.success(updated);
+        return ApiResponse.success(toResponse(message));
     }
 
     public ApiResponse<Void> delete(Long id) {
-        MessageResponse removed = messagesById.remove(id);
-        if (removed == null) {
+        int removed = messageMapper.deleteById(id);
+        if (removed == 0) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "message not found");
         }
 
@@ -122,6 +115,16 @@ public class MessageService {
         return response != null
                 && ResultCode.SUCCESS.getCode().equals(response.code())
                 && response.data() != null;
+    }
+
+    private MessageResponse toResponse(MessageEntity message) {
+        return new MessageResponse(
+                message.getId(),
+                message.getProductId(),
+                message.getSenderId(),
+                message.getContent(),
+                message.getStatus()
+        );
     }
 
     private boolean isBlank(String value) {
