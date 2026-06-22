@@ -9,17 +9,37 @@ import com.campustrade.product.dto.ProductCreateRequest;
 import com.campustrade.product.dto.ProductResponse;
 import com.campustrade.product.dto.ProductStatusUpdateRequest;
 import com.campustrade.product.enums.ProductStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@Transactional
 class ProductServiceTest {
 
-    private final FakeAiClient aiClient = new FakeAiClient();
-    private final ProductService productService = new ProductService(aiClient);
+    @Autowired
+    private ProductService productService;
+
+    @MockBean
+    private AiClient aiClient;
+
+    @BeforeEach
+    void stubContentCheckPassedByDefault() {
+        when(aiClient.checkContent(any())).thenReturn(contentResult(true, "content passed mock safety check"));
+    }
 
     @Test
     void publishCreatesProductOnSale() {
@@ -41,13 +61,16 @@ class ProductServiceTest {
                 )
                 .containsExactly(1L, "iPad Air", "Used for one year", "Digital", BigDecimal.valueOf(2800),
                         ProductStatus.ON_SALE);
-        assertThat(aiClient.lastContent).isEqualTo("iPad Air Used for one year");
+
+        ArgumentCaptor<ContentCheckClientRequest> captor = ArgumentCaptor.forClass(ContentCheckClientRequest.class);
+        verify(aiClient).checkContent(captor.capture());
+        assertThat(captor.getValue().content()).isEqualTo("iPad Air Used for one year");
     }
 
     @Test
     void publishRejectsContentThatFailsSafetyCheck() {
-        aiClient.passed = false;
-        aiClient.reason = "content contains prohibited keyword: 枪";
+        when(aiClient.checkContent(any()))
+                .thenReturn(contentResult(false, "content contains prohibited keyword: 枪"));
 
         ApiResponse<ProductResponse> response = productService.publish(
                 new ProductCreateRequest(1L, "出售仿真枪", "全新仿真枪一把", "Other", BigDecimal.valueOf(100))
@@ -61,7 +84,7 @@ class ProductServiceTest {
 
     @Test
     void publishReturnsSystemErrorWhenAiServiceThrows() {
-        aiClient.throwException = true;
+        when(aiClient.checkContent(any())).thenThrow(new IllegalStateException("ai down"));
 
         ApiResponse<ProductResponse> response = productService.publish(
                 new ProductCreateRequest(1L, "iPad Air", "Used for one year", "Digital", BigDecimal.valueOf(2800))
@@ -74,7 +97,7 @@ class ProductServiceTest {
 
     @Test
     void publishReturnsSystemErrorWhenContentCheckResponseHasNoData() {
-        aiClient.returnFailure = true;
+        when(aiClient.checkContent(any())).thenReturn(ApiResponse.fail(ResultCode.SYSTEM_ERROR, "ai error"));
 
         ApiResponse<ProductResponse> response = productService.publish(
                 new ProductCreateRequest(1L, "iPad Air", "Used for one year", "Digital", BigDecimal.valueOf(2800))
@@ -92,7 +115,7 @@ class ProductServiceTest {
         );
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
-        assertThat(aiClient.lastContent).isNull();
+        verify(aiClient, never()).checkContent(any());
     }
 
     @Test
@@ -130,7 +153,7 @@ class ProductServiceTest {
 
     @Test
     void findByIdReturnsNotFoundForMissingProduct() {
-        ApiResponse<ProductResponse> response = productService.findById(99L);
+        ApiResponse<ProductResponse> response = productService.findById(9999L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("product not found");
@@ -183,7 +206,7 @@ class ProductServiceTest {
     @Test
     void updateStatusReturnsNotFoundForMissingProduct() {
         ApiResponse<ProductResponse> response = productService.updateStatus(
-                99L,
+                9999L,
                 new ProductStatusUpdateRequest("SOLD")
         );
 
@@ -192,28 +215,11 @@ class ProductServiceTest {
         assertThat(response.data()).isNull();
     }
 
-    private static class FakeAiClient implements AiClient {
-
-        private String lastContent;
-        private boolean passed = true;
-        private String reason = "content passed mock safety check";
-        private boolean throwException;
-        private boolean returnFailure;
-
-        @Override
-        public ApiResponse<ContentCheckClientResponse> checkContent(ContentCheckClientRequest request) {
-            if (throwException) {
-                throw new IllegalStateException("ai service unavailable");
-            }
-            this.lastContent = request.content();
-            if (returnFailure) {
-                return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "ai error");
-            }
-            return new ApiResponse<>(
-                    ResultCode.SUCCESS.getCode(),
-                    "success",
-                    new ContentCheckClientResponse(passed, reason)
-            );
-        }
+    private ApiResponse<ContentCheckClientResponse> contentResult(boolean passed, String reason) {
+        return new ApiResponse<>(
+                ResultCode.SUCCESS.getCode(),
+                "success",
+                new ContentCheckClientResponse(passed, reason)
+        );
     }
 }

@@ -1,5 +1,6 @@
 package com.campustrade.product.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campustrade.common.response.ApiResponse;
 import com.campustrade.common.response.ResultCode;
 import com.campustrade.product.client.AiClient;
@@ -8,26 +9,24 @@ import com.campustrade.product.client.dto.ContentCheckClientResponse;
 import com.campustrade.product.dto.ProductCreateRequest;
 import com.campustrade.product.dto.ProductResponse;
 import com.campustrade.product.dto.ProductStatusUpdateRequest;
+import com.campustrade.product.entity.ProductEntity;
 import com.campustrade.product.enums.ProductStatus;
+import com.campustrade.product.mapper.ProductMapper;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class ProductService {
 
     private final AiClient aiClient;
-    private final AtomicLong idGenerator = new AtomicLong(1);
-    private final Map<Long, ProductResponse> productsById = new ConcurrentHashMap<>();
+    private final ProductMapper productMapper;
 
-    public ProductService(AiClient aiClient) {
+    public ProductService(AiClient aiClient, ProductMapper productMapper) {
         this.aiClient = aiClient;
+        this.productMapper = productMapper;
     }
 
     public ApiResponse<ProductResponse> publish(ProductCreateRequest request) {
@@ -47,19 +46,16 @@ public class ProductService {
             return contentRejection;
         }
 
-        Long id = idGenerator.getAndIncrement();
-        ProductResponse product = new ProductResponse(
-                id,
-                request.sellerId(),
-                request.title().trim(),
-                request.description().trim(),
-                request.category().trim(),
-                request.price(),
-                ProductStatus.ON_SALE
-        );
-        productsById.put(id, product);
+        ProductEntity product = new ProductEntity();
+        product.setSellerId(request.sellerId());
+        product.setTitle(request.title().trim());
+        product.setDescription(request.description().trim());
+        product.setCategory(request.category().trim());
+        product.setPrice(request.price());
+        product.setStatus(ProductStatus.ON_SALE);
+        productMapper.insert(product);
 
-        return ApiResponse.success(product);
+        return ApiResponse.success(toResponse(product));
     }
 
     public ApiResponse<List<ProductResponse>> list(String keyword, String category, String status) {
@@ -73,25 +69,38 @@ public class ProductService {
 
         String normalizedKeyword = isBlank(keyword) ? null : keyword.trim().toLowerCase(Locale.ROOT);
         String trimmedCategory = isBlank(category) ? null : category.trim();
-        ProductStatus statusFilter = parsedStatus;
 
-        List<ProductResponse> products = productsById.values().stream()
-                .filter(product -> matchesKeyword(product, normalizedKeyword))
-                .filter(product -> trimmedCategory == null || product.category().equals(trimmedCategory))
-                .filter(product -> statusFilter == null || product.status() == statusFilter)
-                .sorted(Comparator.comparing(ProductResponse::id))
+        LambdaQueryWrapper<ProductEntity> wrapper = new LambdaQueryWrapper<>();
+        if (normalizedKeyword != null) {
+            // 标题或描述大小写不敏感地包含关键词（LOWER 在 MySQL 与 H2 下行为一致）。
+            String pattern = "%" + normalizedKeyword + "%";
+            wrapper.and(inner -> inner
+                    .apply("LOWER(title) LIKE {0}", pattern)
+                    .or()
+                    .apply("LOWER(description) LIKE {0}", pattern));
+        }
+        if (trimmedCategory != null) {
+            wrapper.eq(ProductEntity::getCategory, trimmedCategory);
+        }
+        if (parsedStatus != null) {
+            wrapper.eq(ProductEntity::getStatus, parsedStatus);
+        }
+        wrapper.orderByAsc(ProductEntity::getId);
+
+        List<ProductResponse> products = productMapper.selectList(wrapper).stream()
+                .map(this::toResponse)
                 .toList();
 
         return ApiResponse.success(products);
     }
 
     public ApiResponse<ProductResponse> findById(Long id) {
-        ProductResponse product = productsById.get(id);
+        ProductEntity product = productMapper.selectById(id);
         if (product == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "product not found");
         }
 
-        return ApiResponse.success(product);
+        return ApiResponse.success(toResponse(product));
     }
 
     public ApiResponse<ProductResponse> updateStatus(Long id, ProductStatusUpdateRequest request) {
@@ -100,23 +109,15 @@ public class ProductService {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "invalid product status");
         }
 
-        ProductResponse product = productsById.get(id);
+        ProductEntity product = productMapper.selectById(id);
         if (product == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "product not found");
         }
 
-        ProductResponse updated = new ProductResponse(
-                product.id(),
-                product.sellerId(),
-                product.title(),
-                product.description(),
-                product.category(),
-                product.price(),
-                status
-        );
-        productsById.put(id, updated);
+        product.setStatus(status);
+        productMapper.updateById(product);
 
-        return ApiResponse.success(updated);
+        return ApiResponse.success(toResponse(product));
     }
 
     /**
@@ -148,13 +149,16 @@ public class ProductService {
         return null;
     }
 
-    private boolean matchesKeyword(ProductResponse product, String keyword) {
-        if (keyword == null) {
-            return true;
-        }
-
-        return product.title().toLowerCase(Locale.ROOT).contains(keyword)
-                || product.description().toLowerCase(Locale.ROOT).contains(keyword);
+    private ProductResponse toResponse(ProductEntity product) {
+        return new ProductResponse(
+                product.getId(),
+                product.getSellerId(),
+                product.getTitle(),
+                product.getDescription(),
+                product.getCategory(),
+                product.getPrice(),
+                product.getStatus()
+        );
     }
 
     private ProductStatus parseStatus(String value) {

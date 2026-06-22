@@ -71,7 +71,7 @@ class ProductControllerTest {
     private static class CapturingProductService extends ProductService {
 
         private CapturingProductService() {
-            super(null);
+            super(null, null);
         }
 
         private final ProductResponse product = new ProductResponse(
