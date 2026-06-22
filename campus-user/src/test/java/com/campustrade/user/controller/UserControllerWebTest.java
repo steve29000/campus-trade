@@ -79,6 +79,10 @@ class UserControllerWebTest {
         private UserLoginRequest loginRequest;
         private Long id;
 
+        private CapturingUserService() {
+            super(null);
+        }
+
         @Override
         public ApiResponse<UserProfileResponse> register(UserRegisterRequest request) {
             this.registerRequest = request;

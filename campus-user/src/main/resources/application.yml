@@ -8,3 +8,13 @@ spring:
     nacos:
       discovery:
         server-addr: localhost:8848
+  datasource:
+    url: jdbc:mysql://localhost:3306/campus_user_db?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: campus1234
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler

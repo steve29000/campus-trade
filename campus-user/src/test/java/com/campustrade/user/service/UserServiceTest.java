@@ -7,12 +7,18 @@ import com.campustrade.user.dto.UserLoginRequest;
 import com.campustrade.user.dto.UserProfileResponse;
 import com.campustrade.user.dto.UserRegisterRequest;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@Transactional
 class UserServiceTest {
 
-    private final UserService userService = new UserService();
+    @Autowired
+    private UserService userService;
 
     @Test
     void registerCreatesUserProfile() {
@@ -66,6 +72,15 @@ class UserServiceTest {
     }
 
     @Test
+    void loginRejectsUnknownUsername() {
+        ApiResponse<LoginResponse> response = userService.login(new UserLoginRequest("ghost", "secret"));
+
+        assertThat(response.code()).isEqualTo(ResultCode.UNAUTHORIZED.getCode());
+        assertThat(response.message()).isEqualTo("username or password is incorrect");
+        assertThat(response.data()).isNull();
+    }
+
+    @Test
     void findProfileReturnsRegisteredUser() {
         ApiResponse<UserProfileResponse> registerResponse = userService.register(
                 new UserRegisterRequest("alice", "secret", "Alice")
@@ -78,6 +93,15 @@ class UserServiceTest {
         assertThat(response.data())
                 .extracting(UserProfileResponse::username, UserProfileResponse::nickname)
                 .containsExactly("alice", "Alice");
+    }
+
+    @Test
+    void findProfileReturnsNotFoundForMissingUser() {
+        ApiResponse<UserProfileResponse> response = userService.findProfile(9999L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
+        assertThat(response.message()).isEqualTo("user not found");
+        assertThat(response.data()).isNull();
     }
 
     @Test
