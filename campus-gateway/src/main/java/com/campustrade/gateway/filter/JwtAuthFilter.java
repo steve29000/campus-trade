@@ -9,6 +9,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -22,9 +23,8 @@ import java.util.List;
 
 /**
  * 网关 JWT 鉴权过滤器。登录和注册路径放行，其余请求必须携带有效的
- * {@code Authorization: Bearer <token>}，否则直接返回 401。
- *
- * <p>校验通过后把用户 id 放进 {@code X-User-Id} 请求头传递给下游服务。</p>
+ * {@code Authorization: Bearer <token>}；签名校验通过后还会查 Redis 黑名单，
+ * 已登出（被吊销）的 token 同样拒绝。校验通过后把用户 id 放进 {@code X-User-Id} 头传给下游。
  */
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
@@ -33,10 +33,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
+    private final ReactiveStringRedisTemplate redisTemplate;
 
-    public JwtAuthFilter(JwtUtil jwtUtil, ObjectMapper objectMapper) {
+    public JwtAuthFilter(JwtUtil jwtUtil, ObjectMapper objectMapper, ReactiveStringRedisTemplate redisTemplate) {
         this.jwtUtil = jwtUtil;
         this.objectMapper = objectMapper;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -56,11 +58,18 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return unauthorized(exchange, "invalid or expired token");
         }
 
-        Long userId = jwtUtil.getUserId(token);
-        ServerWebExchange mutated = exchange.mutate()
-                .request(builder -> builder.header("X-User-Id", String.valueOf(userId)))
-                .build();
-        return chain.filter(mutated);
+        return redisTemplate.hasKey(JwtUtil.BLOCKLIST_PREFIX + token)
+                .defaultIfEmpty(false)
+                .flatMap(revoked -> {
+                    if (Boolean.TRUE.equals(revoked)) {
+                        return unauthorized(exchange, "token has been revoked");
+                    }
+                    Long userId = jwtUtil.getUserId(token);
+                    ServerWebExchange mutated = exchange.mutate()
+                            .request(builder -> builder.header("X-User-Id", String.valueOf(userId)))
+                            .build();
+                    return chain.filter(mutated);
+                });
     }
 
     private boolean isWhitelisted(String path) {

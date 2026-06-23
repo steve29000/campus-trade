@@ -391,3 +391,20 @@
 - Sentinel 的限流核心不依赖控制台：规则在代码或 Nacos 数据源里即可生效，控制台主要用于监控和动态调整。
 - web 自动埋点下，资源名默认就是请求的 URL 路径（如 `/product`），按它配置流控规则即可。
 - 自定义 `BlockExceptionHandler` 能把限流响应统一成项目的 `ApiResponse` 结构，前端处理更一致。
+
+## 2026-06-22：Redis 实现 JWT 登出 / Token 吊销
+
+### 本次完成
+
+- `campus-user` 接入 Redis，新增 `POST /user/logout`：把当前 token 写入 Redis 黑名单 `jwt:blocklist:<token>`，TTL 设为 token 的剩余有效期，到期自动清理。
+- `campus-gateway` 的 `JwtAuthFilter` 在校验签名后，用响应式 Redis（`ReactiveStringRedisTemplate`）查黑名单，命中则返回 401 `token has been revoked`。
+- 黑名单键前缀统一放在 `campus-common` 的 `JwtUtil.BLOCKLIST_PREFIX`，user 与 gateway 共用，避免漂移。
+- 用 Docker 启动 Redis（容器 `campus-redis`，`localhost:6379`）；新增 `TokenService` 测试和网关吊销用例，新增 `docs/redis/README.md`。
+- 真实运行验证：登录拿 token → 受保护接口 200 → 登出 → 同一 token 变 401；Redis 中存在带 TTL 的黑名单键。
+
+### 学到的内容
+
+- 无状态 JWT 无法直接「登出失效」，常见做法是用 Redis 黑名单（存到期前的已登出 token，靠 TTL 自动清理），在网关统一拦截。
+- 网关是 WebFlux，要用 `ReactiveStringRedisTemplate` 做异步查询，把黑名单判断接到过滤器的响应式链路里。
+- 本机测试 JVM 较新，Mockito/ByteBuddy mock 具体类（如 `RedisTemplate`）需要在 surefire 里加 `-Dnet.bytebuddy.experimental=true`；mock 接口则不受影响。
+- 共享常量（黑名单前缀）放公共模块，能避免签发方和校验方各写一份字符串导致不一致。

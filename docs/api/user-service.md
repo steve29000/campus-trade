@@ -125,6 +125,24 @@ Incorrect username or password:
 }
 ```
 
+## Logout
+
+`POST /user/logout`
+
+Revokes the caller's JWT by adding it to a Redis blocklist (TTL = the token's remaining
+lifetime). After logout, the gateway rejects the same token with `401 token has been revoked`.
+The request must carry the token (it is not a public route): `Authorization: Bearer <token>`.
+
+### Success Response
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null
+}
+```
+
 ## Get User Profile
 
 `GET /user/{id}`

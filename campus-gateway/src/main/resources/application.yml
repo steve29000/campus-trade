@@ -9,6 +9,10 @@ spring:
     name: campus-gateway
   config:
     import: "optional:nacos:campus-shared.yaml"
+  data:
+    redis:
+      host: localhost
+      port: 6379
   cloud:
     nacos:
       discovery:

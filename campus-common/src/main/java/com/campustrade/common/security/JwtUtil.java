@@ -17,6 +17,11 @@ import java.util.Date;
  */
 public class JwtUtil {
 
+    /**
+     * Redis 黑名单键前缀，campus-user 写入、campus-gateway 校验，统一在此定义避免漂移。
+     */
+    public static final String BLOCKLIST_PREFIX = "jwt:blocklist:";
+
     private final SecretKey key;
     private final long expirationMillis;
 
@@ -62,5 +67,12 @@ public class JwtUtil {
 
     public Long getUserId(String token) {
         return Long.valueOf(parse(token).getSubject());
+    }
+
+    /**
+     * 返回 token 的过期时间，用于按剩余有效期把已登出 token 放进黑名单。
+     */
+    public Date getExpiration(String token) {
+        return parse(token).getExpiration();
     }
 }
