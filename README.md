@@ -115,6 +115,8 @@ docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
 
 ## 接口文档
 
+除下面的 Markdown 文档外，5 个 servlet 服务（user/product/order/ai/message）已接入 **Knife4j**，启动后可直接访问交互式接口文档：`http://localhost:<服务端口>/doc.html`（例如用户服务 `http://localhost:8081/doc.html`），OpenAPI JSON 为 `/v3/api-docs`。
+
 - [campus-gateway routes](docs/api/gateway-routes.md)：记录当前网关路由表，包括 `/user/**`、`/product/**`、`/order/**`、`/ai/**` 和 `/message/**` 到各服务的转发关系。当前网关只做路由转发。
 - [campus-user API](docs/api/user-service.md)：记录当前用户服务骨架接口，包括注册、登录和用户资料查询示例。当前用户数据仅保存在内存中，登录 token 为 mock-only。
 - [campus-ai API](docs/api/ai-service.md)：记录当前 AI mock 服务接口，包括描述优化、分类预测和内容检查示例。当前 AI provider 为确定性 mock-only 实现，不调用外部模型。
@@ -140,6 +142,7 @@ docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
 10. `campus-common` 全局异常处理（自动配置，servlet 服务统一兜底，gateway 安全跳过）。
 11. `campus-user`、`campus-product`、`campus-order`、`campus-message` 接入 MyBatis Plus + MySQL（每服务独立库），内存存储替换为数据库。
 12. `campus-gateway` JWT 鉴权（登录/注册放行，其余校验 Bearer token），登录由 `campus-user` 签发 JWT，`JwtUtil` 在 `campus-common` 共享。
+13. 5 个 servlet 服务接入 Knife4j 交互式接口文档（`/doc.html`），基于 springdoc 自动从 controller 生成。
 
 ## 开发原则
 

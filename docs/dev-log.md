@@ -341,3 +341,19 @@
 - 共享密钥要在 user 和 gateway 两处保持一致；密钥写在 `application.yml` 只适合本地，生产应走环境变量或配置中心。
 - 父 pom 改了 dependencyManagement 后，必须重新 install 父 pom，否则子模块按服务名引用的依赖会找不到版本。
 - 网关鉴权失败返回真实 HTTP 401（与业务接口「200 + body code」约定不同），因为请求在安全边界就被拦截，没有进入具体服务。
+
+## 2026-06-22：Knife4j 接口文档
+
+### 本次完成
+
+- 为 5 个 servlet 服务（user/product/order/ai/message）接入 Knife4j（基于 springdoc-openapi），每个服务提供交互式文档 `/doc.html` 和 OpenAPI JSON `/v3/api-docs`。
+- 每个服务增加 `OpenApiConfig`，设置服务专属标题（如「CampusTrade 用户服务 API」）和描述；接口路径由 springdoc 从现有 controller 自动生成。
+- 父 pom 统一管理 knife4j 版本。
+- 真实运行验证：user 与 ai 的 `/v3/api-docs` 返回正确标题和全部接口路径，`/doc.html` 返回 200。
+
+### 学到的内容
+
+- springdoc 能直接从 controller 自动生成 OpenAPI 文档，无需额外注解即可用；注解只是用来补充更详细的描述。
+- 自定义文档标题/版本通过一个 `OpenAPI` bean（`io.swagger.v3.oas.models`）设置即可。
+- 网关是 WebFlux，与各 servlet 服务的 knife4j 不同源，统一聚合文档需要单独配置，作为后续项。
+- 文档接口（`/doc.html`、`/v3/api-docs`）当前直连各服务访问；若要经网关访问需在网关白名单放行。
