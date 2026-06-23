@@ -44,6 +44,17 @@ class JwtAuthFilterTest {
     }
 
     @Test
+    void whitelistedRegisterPathPassesThroughWithoutToken() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.post("/user/register"));
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+
+        filter.filter(exchange, capturingChain(forwarded)).block();
+
+        assertThat(forwarded.get()).isNotNull();
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+    }
+
+    @Test
     void similarLoginPrefixRequiresToken() {
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/user/login-extra"));
         AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
