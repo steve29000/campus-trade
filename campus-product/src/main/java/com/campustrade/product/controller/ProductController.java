@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,8 +28,11 @@ public class ProductController {
     }
 
     @PostMapping
-    public ApiResponse<ProductResponse> publish(@RequestBody ProductCreateRequest request) {
-        return productService.publish(request);
+    public ApiResponse<ProductResponse> publish(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody ProductCreateRequest request
+    ) {
+        return productService.publish(request, userId);
     }
 
     @GetMapping
@@ -48,8 +52,9 @@ public class ProductController {
     @PutMapping("/{id}/status")
     public ApiResponse<ProductResponse> updateStatus(
             @PathVariable("id") Long id,
+            @RequestHeader("X-User-Id") Long userId,
             @RequestBody ProductStatusUpdateRequest request
     ) {
-        return productService.updateStatus(id, request);
+        return productService.updateStatus(id, request, userId);
     }
 }

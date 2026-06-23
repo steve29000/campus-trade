@@ -31,6 +31,7 @@ class ProductControllerWebTest {
     @Test
     void publishRouteBindsJsonRequestAndReturnsProductJson() throws Exception {
         mockMvc.perform(post("/product")
+                        .header("X-User-Id", 42L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -47,6 +48,7 @@ class ProductControllerWebTest {
                 .andExpect(jsonPath("$.data.status").value("ON_SALE"));
 
         assertThat(productService.createRequest.sellerId()).isEqualTo(2L);
+        assertThat(productService.authenticatedUserId).isEqualTo(42L);
         assertThat(productService.createRequest.price()).isEqualByComparingTo(BigDecimal.valueOf(2800));
     }
 
@@ -68,6 +70,7 @@ class ProductControllerWebTest {
     @Test
     void updateStatusRouteBindsPathAndJsonRequest() throws Exception {
         mockMvc.perform(put("/product/1/status")
+                        .header("X-User-Id", 42L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -80,6 +83,7 @@ class ProductControllerWebTest {
 
         assertThat(productService.id).isEqualTo(1L);
         assertThat(productService.statusRequest.status()).isEqualTo("SOLD");
+        assertThat(productService.authenticatedUserId).isEqualTo(42L);
     }
 
     private static class CapturingProductService extends ProductService {
@@ -91,16 +95,18 @@ class ProductControllerWebTest {
         private ProductCreateRequest createRequest;
         private ProductStatusUpdateRequest statusRequest;
         private Long id;
+        private Long authenticatedUserId;
         private String keyword;
         private String category;
         private String status;
 
         @Override
-        public ApiResponse<ProductResponse> publish(ProductCreateRequest request) {
+        public ApiResponse<ProductResponse> publish(ProductCreateRequest request, Long authenticatedUserId) {
             this.createRequest = request;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(new ProductResponse(
                     1L,
-                    request.sellerId(),
+                    authenticatedUserId,
                     request.title(),
                     request.description(),
                     request.category(),
@@ -110,9 +116,14 @@ class ProductControllerWebTest {
         }
 
         @Override
-        public ApiResponse<ProductResponse> updateStatus(Long id, ProductStatusUpdateRequest request) {
+        public ApiResponse<ProductResponse> updateStatus(
+                Long id,
+                ProductStatusUpdateRequest request,
+                Long authenticatedUserId
+        ) {
             this.id = id;
             this.statusRequest = request;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(new ProductResponse(
                     id,
                     2L,

@@ -29,11 +29,12 @@ class ProductControllerTest {
                 BigDecimal.valueOf(2800)
         );
 
-        ApiResponse<ProductResponse> response = productController.publish(request);
+        ApiResponse<ProductResponse> response = productController.publish(42L, request);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).isEqualTo(productService.product);
         assertThat(productService.createRequest).isEqualTo(request);
+        assertThat(productService.authenticatedUserId).isEqualTo(42L);
     }
 
     @Test
@@ -60,12 +61,13 @@ class ProductControllerTest {
     void updateStatusDelegatesToProductService() {
         ProductStatusUpdateRequest request = new ProductStatusUpdateRequest("SOLD");
 
-        ApiResponse<ProductResponse> response = productController.updateStatus(7L, request);
+        ApiResponse<ProductResponse> response = productController.updateStatus(7L, 42L, request);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).isEqualTo(productService.product);
         assertThat(productService.id).isEqualTo(7L);
         assertThat(productService.statusRequest).isEqualTo(request);
+        assertThat(productService.authenticatedUserId).isEqualTo(42L);
     }
 
     private static class CapturingProductService extends ProductService {
@@ -87,13 +89,15 @@ class ProductControllerTest {
         private ProductCreateRequest createRequest;
         private ProductStatusUpdateRequest statusRequest;
         private Long id;
+        private Long authenticatedUserId;
         private String keyword;
         private String category;
         private String status;
 
         @Override
-        public ApiResponse<ProductResponse> publish(ProductCreateRequest request) {
+        public ApiResponse<ProductResponse> publish(ProductCreateRequest request, Long authenticatedUserId) {
             this.createRequest = request;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(product);
         }
 
@@ -112,9 +116,14 @@ class ProductControllerTest {
         }
 
         @Override
-        public ApiResponse<ProductResponse> updateStatus(Long id, ProductStatusUpdateRequest request) {
+        public ApiResponse<ProductResponse> updateStatus(
+                Long id,
+                ProductStatusUpdateRequest request,
+                Long authenticatedUserId
+        ) {
             this.id = id;
             this.statusRequest = request;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(product);
         }
     }

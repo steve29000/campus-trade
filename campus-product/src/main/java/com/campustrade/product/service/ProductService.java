@@ -29,8 +29,8 @@ public class ProductService {
         this.productMapper = productMapper;
     }
 
-    public ApiResponse<ProductResponse> publish(ProductCreateRequest request) {
-        if (request == null || request.sellerId() == null) {
+    public ApiResponse<ProductResponse> publish(ProductCreateRequest request, Long authenticatedUserId) {
+        if (request == null || authenticatedUserId == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "seller id is required");
         }
         if (isBlank(request.title()) || isBlank(request.description()) || isBlank(request.category())) {
@@ -47,7 +47,7 @@ public class ProductService {
         }
 
         ProductEntity product = new ProductEntity();
-        product.setSellerId(request.sellerId());
+        product.setSellerId(authenticatedUserId);
         product.setTitle(request.title().trim());
         product.setDescription(request.description().trim());
         product.setCategory(request.category().trim());
@@ -103,7 +103,11 @@ public class ProductService {
         return ApiResponse.success(toResponse(product));
     }
 
-    public ApiResponse<ProductResponse> updateStatus(Long id, ProductStatusUpdateRequest request) {
+    public ApiResponse<ProductResponse> updateStatus(
+            Long id,
+            ProductStatusUpdateRequest request,
+            Long authenticatedUserId
+    ) {
         ProductStatus status = request == null ? null : parseStatus(request.status());
         if (status == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "invalid product status");
@@ -112,6 +116,9 @@ public class ProductService {
         ProductEntity product = productMapper.selectById(id);
         if (product == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "product not found");
+        }
+        if (!product.getSellerId().equals(authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only product seller can update status");
         }
 
         product.setStatus(status);
