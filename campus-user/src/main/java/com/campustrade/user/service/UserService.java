@@ -11,6 +11,7 @@ import com.campustrade.user.dto.UserRegisterRequest;
 import com.campustrade.user.entity.UserEntity;
 import com.campustrade.user.mapper.UserMapper;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,10 +19,12 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserMapper userMapper, JwtUtil jwtUtil) {
+    public UserService(UserMapper userMapper, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
         this.userMapper = userMapper;
         this.jwtUtil = jwtUtil;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public ApiResponse<UserProfileResponse> register(UserRegisterRequest request) {
@@ -37,8 +40,7 @@ public class UserService {
         String nickname = isBlank(request.nickname()) ? username : request.nickname().trim();
         UserEntity user = new UserEntity();
         user.setUsername(username);
-        // Mock-only: replace plain text storage with password hashing before adding authentication.
-        user.setPassword(request.password());
+        user.setPassword(passwordEncoder.encode(request.password()));
         user.setNickname(nickname);
 
         try {
@@ -57,7 +59,7 @@ public class UserService {
         }
 
         UserEntity user = findByUsername(request.username().trim());
-        if (user == null || !user.getPassword().equals(request.password())) {
+        if (user == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
             return ApiResponse.fail(ResultCode.UNAUTHORIZED, "username or password is incorrect");
         }
 

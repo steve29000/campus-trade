@@ -6,9 +6,12 @@ import com.campustrade.user.dto.LoginResponse;
 import com.campustrade.user.dto.UserLoginRequest;
 import com.campustrade.user.dto.UserProfileResponse;
 import com.campustrade.user.dto.UserRegisterRequest;
+import com.campustrade.user.entity.UserEntity;
+import com.campustrade.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,6 +22,12 @@ class UserServiceTest {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Test
     void registerCreatesUserProfile() {
@@ -32,6 +41,18 @@ class UserServiceTest {
         assertThat(response.data())
                 .extracting(UserProfileResponse::username, UserProfileResponse::nickname)
                 .containsExactly("alice", "Alice");
+    }
+
+    @Test
+    void registerStoresBcryptHashedPassword() {
+        ApiResponse<UserProfileResponse> response = userService.register(
+                new UserRegisterRequest("alice", "secret", "Alice")
+        );
+
+        UserEntity stored = userMapper.selectById(response.data().id());
+        assertThat(stored.getPassword()).isNotEqualTo("secret");
+        assertThat(stored.getPassword()).startsWith("$2");
+        assertThat(passwordEncoder.matches("secret", stored.getPassword())).isTrue();
     }
 
     @Test
