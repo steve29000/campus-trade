@@ -31,10 +31,11 @@ class MessageControllerWebTest {
     void postRouteBindsJsonRequestAndReturnsMessageJson() throws Exception {
         mockMvc.perform(post("/message")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", 2L)
                         .content("""
                                 {
                                   "productId": 100,
-                                  "senderId": 2,
+                                  "senderId": 99,
                                   "content": "在吗"
                                 }
                                 """))
@@ -45,8 +46,9 @@ class MessageControllerWebTest {
                 .andExpect(jsonPath("$.data.status").value("VISIBLE"));
 
         assertThat(messageService.createRequest.productId()).isEqualTo(100L);
-        assertThat(messageService.createRequest.senderId()).isEqualTo(2L);
+        assertThat(messageService.createRequest.senderId()).isEqualTo(99L);
         assertThat(messageService.createRequest.content()).isEqualTo("在吗");
+        assertThat(messageService.authenticatedUserId).isEqualTo(2L);
     }
 
     @Test
@@ -61,21 +63,25 @@ class MessageControllerWebTest {
 
     @Test
     void hideRouteBindsPathVariableAndReturnsHiddenStatus() throws Exception {
-        mockMvc.perform(put("/message/7/hide"))
+        mockMvc.perform(put("/message/7/hide")
+                        .header("X-User-Id", 2L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.status").value("HIDDEN"));
 
         assertThat(messageService.id).isEqualTo(7L);
+        assertThat(messageService.authenticatedUserId).isEqualTo(2L);
     }
 
     @Test
     void deleteRouteBindsPathVariable() throws Exception {
-        mockMvc.perform(delete("/message/7"))
+        mockMvc.perform(delete("/message/7")
+                        .header("X-User-Id", 2L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
         assertThat(messageService.id).isEqualTo(7L);
+        assertThat(messageService.authenticatedUserId).isEqualTo(2L);
     }
 
     private static class CapturingMessageService extends MessageService {
@@ -83,15 +89,17 @@ class MessageControllerWebTest {
         private MessageCreateRequest createRequest;
         private Long productId;
         private Long id;
+        private Long authenticatedUserId;
 
         private CapturingMessageService() {
             super(null, null, null);
         }
 
         @Override
-        public ApiResponse<MessageResponse> post(MessageCreateRequest request) {
+        public ApiResponse<MessageResponse> post(MessageCreateRequest request, Long authenticatedUserId) {
             this.createRequest = request;
-            return ApiResponse.success(new MessageResponse(7L, request.productId(), request.senderId(),
+            this.authenticatedUserId = authenticatedUserId;
+            return ApiResponse.success(new MessageResponse(7L, request.productId(), authenticatedUserId,
                     request.content(), MessageStatus.VISIBLE));
         }
 
@@ -103,14 +111,16 @@ class MessageControllerWebTest {
         }
 
         @Override
-        public ApiResponse<MessageResponse> hide(Long id) {
+        public ApiResponse<MessageResponse> hide(Long id, Long authenticatedUserId) {
             this.id = id;
-            return ApiResponse.success(new MessageResponse(id, 100L, 2L, "在吗", MessageStatus.HIDDEN));
+            this.authenticatedUserId = authenticatedUserId;
+            return ApiResponse.success(new MessageResponse(id, 100L, authenticatedUserId, "在吗", MessageStatus.HIDDEN));
         }
 
         @Override
-        public ApiResponse<Void> delete(Long id) {
+        public ApiResponse<Void> delete(Long id, Long authenticatedUserId) {
             this.id = id;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success();
         }
     }

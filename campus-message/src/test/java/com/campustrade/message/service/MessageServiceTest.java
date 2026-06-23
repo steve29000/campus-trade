@@ -41,7 +41,7 @@ class MessageServiceTest {
 
     @Test
     void postCreatesVisibleMessage() {
-        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "  在吗，能便宜点吗  "));
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "  在吗，能便宜点吗  "), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data().id()).isPositive();
@@ -58,8 +58,17 @@ class MessageServiceTest {
     }
 
     @Test
+    void postUsesAuthenticatedUserIdAndIgnoresRequestSenderId() {
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 99L, "hi"), 2L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
+        assertThat(response.data().senderId()).isEqualTo(2L);
+        assertThat(userClient.requestedIds).containsExactly(2L);
+    }
+
+    @Test
     void postRejectsMissingProductId() {
-        ApiResponse<MessageResponse> response = messageService.post(message(null, 2L, "hi"));
+        ApiResponse<MessageResponse> response = messageService.post(message(null, 2L, "hi"), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("product id is required");
@@ -68,8 +77,8 @@ class MessageServiceTest {
     }
 
     @Test
-    void postRejectsMissingSenderId() {
-        ApiResponse<MessageResponse> response = messageService.post(message(100L, null, "hi"));
+    void postRejectsMissingAuthenticatedUserId() {
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"), null);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("sender id is required");
@@ -77,7 +86,7 @@ class MessageServiceTest {
 
     @Test
     void postRejectsBlankContent() {
-        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "   "));
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "   "), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("content is required");
@@ -87,7 +96,7 @@ class MessageServiceTest {
     void postRejectsMissingSenderFromUserService() {
         userClient.missingIds.add(2L);
 
-        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"));
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 99L, "hi"), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("sender not found");
@@ -98,7 +107,7 @@ class MessageServiceTest {
     void postRejectsMissingProductFromProductService() {
         productClient.missingIds.add(100L);
 
-        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"));
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("product not found");
@@ -108,7 +117,7 @@ class MessageServiceTest {
     void postReturnsSystemErrorWhenUserServiceThrows() {
         userClient.throwException = true;
 
-        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"));
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
         assertThat(response.message()).isEqualTo("remote service unavailable");
@@ -118,7 +127,7 @@ class MessageServiceTest {
     void postReturnsSystemErrorWhenProductServiceThrows() {
         productClient.throwException = true;
 
-        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"));
+        ApiResponse<MessageResponse> response = messageService.post(message(100L, 2L, "hi"), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
         assertThat(response.message()).isEqualTo("remote service unavailable");
@@ -126,11 +135,11 @@ class MessageServiceTest {
 
     @Test
     void listByProductIdReturnsVisibleMessagesSortedByIdAscending() {
-        MessageResponse first = messageService.post(message(100L, 2L, "first")).data();
-        MessageResponse hidden = messageService.post(message(100L, 3L, "spam")).data();
-        MessageResponse second = messageService.post(message(100L, 4L, "second")).data();
-        messageService.post(message(200L, 2L, "other product"));
-        messageService.hide(hidden.id());
+        MessageResponse first = messageService.post(message(100L, 2L, "first"), 2L).data();
+        MessageResponse hidden = messageService.post(message(100L, 3L, "spam"), 3L).data();
+        MessageResponse second = messageService.post(message(100L, 4L, "second"), 4L).data();
+        messageService.post(message(200L, 2L, "other product"), 2L);
+        messageService.hide(hidden.id(), 3L);
 
         ApiResponse<List<MessageResponse>> response = messageService.listByProductId(100L);
 
@@ -150,9 +159,9 @@ class MessageServiceTest {
 
     @Test
     void hideChangesStatusToHidden() {
-        MessageResponse created = messageService.post(message(100L, 2L, "hi")).data();
+        MessageResponse created = messageService.post(message(100L, 2L, "hi"), 2L).data();
 
-        ApiResponse<MessageResponse> response = messageService.hide(created.id());
+        ApiResponse<MessageResponse> response = messageService.hide(created.id(), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data().status()).isEqualTo(MessageStatus.HIDDEN);
@@ -161,10 +170,10 @@ class MessageServiceTest {
 
     @Test
     void hideIsIdempotentWhenAlreadyHidden() {
-        MessageResponse created = messageService.post(message(100L, 2L, "hi")).data();
-        messageService.hide(created.id());
+        MessageResponse created = messageService.post(message(100L, 2L, "hi"), 2L).data();
+        messageService.hide(created.id(), 2L);
 
-        ApiResponse<MessageResponse> response = messageService.hide(created.id());
+        ApiResponse<MessageResponse> response = messageService.hide(created.id(), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data().status()).isEqualTo(MessageStatus.HIDDEN);
@@ -172,29 +181,55 @@ class MessageServiceTest {
 
     @Test
     void hideReturnsNotFoundForMissingMessage() {
-        ApiResponse<MessageResponse> response = messageService.hide(99L);
+        ApiResponse<MessageResponse> response = messageService.hide(99L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("message not found");
     }
 
     @Test
-    void deleteRemovesMessage() {
-        MessageResponse created = messageService.post(message(100L, 2L, "hi")).data();
+    void hideRejectsNonSender() {
+        MessageResponse created = messageService.post(message(100L, 2L, "hi"), 2L).data();
 
-        ApiResponse<Void> response = messageService.delete(created.id());
+        ApiResponse<MessageResponse> response = messageService.hide(created.id(), 3L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.FORBIDDEN.getCode());
+        assertThat(response.message()).isEqualTo("only message sender can modify this message");
+        assertThat(messageService.listByProductId(100L).data())
+                .extracting(MessageResponse::id)
+                .containsExactly(created.id());
+    }
+
+    @Test
+    void deleteRemovesMessageForSender() {
+        MessageResponse created = messageService.post(message(100L, 2L, "hi"), 2L).data();
+
+        ApiResponse<Void> response = messageService.delete(created.id(), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(messageService.listByProductId(100L).data()).isEmpty();
-        assertThat(messageService.hide(created.id()).code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
+        assertThat(messageService.hide(created.id(), 2L).code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
     }
 
     @Test
     void deleteReturnsNotFoundForMissingMessage() {
-        ApiResponse<Void> response = messageService.delete(99L);
+        ApiResponse<Void> response = messageService.delete(99L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("message not found");
+    }
+
+    @Test
+    void deleteRejectsNonSender() {
+        MessageResponse created = messageService.post(message(100L, 2L, "hi"), 2L).data();
+
+        ApiResponse<Void> response = messageService.delete(created.id(), 3L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.FORBIDDEN.getCode());
+        assertThat(response.message()).isEqualTo("only message sender can modify this message");
+        assertThat(messageService.listByProductId(100L).data())
+                .extracting(MessageResponse::id)
+                .containsExactly(created.id());
     }
 
     private MessageCreateRequest message(Long productId, Long senderId, String content) {

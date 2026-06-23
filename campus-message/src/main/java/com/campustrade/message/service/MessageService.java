@@ -15,6 +15,7 @@ import com.campustrade.message.mapper.MessageMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class MessageService {
@@ -29,11 +30,11 @@ public class MessageService {
         this.messageMapper = messageMapper;
     }
 
-    public ApiResponse<MessageResponse> post(MessageCreateRequest request) {
+    public ApiResponse<MessageResponse> post(MessageCreateRequest request, Long authenticatedUserId) {
         if (request == null || request.productId() == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "product id is required");
         }
-        if (request.senderId() == null) {
+        if (authenticatedUserId == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "sender id is required");
         }
         if (isBlank(request.content())) {
@@ -42,7 +43,7 @@ public class MessageService {
 
         ApiResponse<UserProfileClientResponse> senderResponse;
         try {
-            senderResponse = userClient.findProfile(request.senderId());
+            senderResponse = userClient.findProfile(authenticatedUserId);
         } catch (RuntimeException exception) {
             return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
         }
@@ -62,7 +63,7 @@ public class MessageService {
 
         MessageEntity message = new MessageEntity();
         message.setProductId(request.productId());
-        message.setSenderId(request.senderId());
+        message.setSenderId(authenticatedUserId);
         message.setContent(request.content().trim());
         message.setStatus(MessageStatus.VISIBLE);
         messageMapper.insert(message);
@@ -87,10 +88,13 @@ public class MessageService {
         return ApiResponse.success(messages);
     }
 
-    public ApiResponse<MessageResponse> hide(Long id) {
+    public ApiResponse<MessageResponse> hide(Long id, Long authenticatedUserId) {
         MessageEntity message = messageMapper.selectById(id);
         if (message == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "message not found");
+        }
+        if (!Objects.equals(message.getSenderId(), authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only message sender can modify this message");
         }
         if (message.getStatus() == MessageStatus.HIDDEN) {
             return ApiResponse.success(toResponse(message));
@@ -102,11 +106,16 @@ public class MessageService {
         return ApiResponse.success(toResponse(message));
     }
 
-    public ApiResponse<Void> delete(Long id) {
-        int removed = messageMapper.deleteById(id);
-        if (removed == 0) {
+    public ApiResponse<Void> delete(Long id, Long authenticatedUserId) {
+        MessageEntity message = messageMapper.selectById(id);
+        if (message == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "message not found");
         }
+        if (!Objects.equals(message.getSenderId(), authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only message sender can modify this message");
+        }
+
+        messageMapper.deleteById(id);
 
         return ApiResponse.success();
     }
