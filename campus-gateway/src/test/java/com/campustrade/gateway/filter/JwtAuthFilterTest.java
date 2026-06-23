@@ -44,6 +44,17 @@ class JwtAuthFilterTest {
     }
 
     @Test
+    void similarLoginPrefixRequiresToken() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/user/login-extra"));
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+
+        filter.filter(exchange, capturingChain(forwarded)).block();
+
+        assertThat(forwarded.get()).isNull();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
     void missingTokenIsRejectedWithUnauthorized() {
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/product/1"));
         AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
@@ -79,6 +90,22 @@ class JwtAuthFilterTest {
         assertThat(exchange.getResponse().getStatusCode()).isNull();
         assertThat(forwarded.get()).isNotNull();
         assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Id")).isEqualTo("7");
+    }
+
+    @Test
+    void validTokenReplacesForgedUserIdHeader() {
+        notRevoked();
+        String token = jwtUtil.generateToken(7L, "alice");
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/product/1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .header("X-User-Id", "999"));
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+
+        filter.filter(exchange, capturingChain(forwarded)).block();
+
+        assertThat(forwarded.get()).isNotNull();
+        assertThat(forwarded.get().getRequest().getHeaders().get("X-User-Id")).containsExactly("7");
     }
 
     @Test

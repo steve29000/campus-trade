@@ -66,14 +66,15 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     }
                     Long userId = jwtUtil.getUserId(token);
                     ServerWebExchange mutated = exchange.mutate()
-                            .request(builder -> builder.header("X-User-Id", String.valueOf(userId)))
+                            .request(builder -> builder.headers(headers -> headers.remove("X-User-Id"))
+                                    .header("X-User-Id", String.valueOf(userId)))
                             .build();
                     return chain.filter(mutated);
                 });
     }
 
     private boolean isWhitelisted(String path) {
-        return WHITELIST.stream().anyMatch(path::startsWith);
+        return WHITELIST.contains(path);
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {
