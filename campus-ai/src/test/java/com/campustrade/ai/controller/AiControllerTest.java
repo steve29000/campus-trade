@@ -2,10 +2,14 @@ package com.campustrade.ai.controller;
 
 import com.campustrade.ai.dto.ContentCheckResponse;
 import com.campustrade.ai.dto.DescriptionOptimizeResponse;
+import com.campustrade.ai.dto.PriceSuggestRequest;
+import com.campustrade.ai.dto.PriceSuggestResponse;
 import com.campustrade.ai.provider.MockAiProvider;
 import com.campustrade.common.response.ApiResponse;
 import com.campustrade.common.response.ResultCode;
 import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,5 +33,27 @@ class AiControllerTest {
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("content is required");
         assertThat(response.data()).isNull();
+    }
+
+    @Test
+    void suggestPriceRejectsBlankCategory() {
+        ApiResponse<PriceSuggestResponse> response = aiController.suggestPrice(
+                new PriceSuggestRequest(" ", "iPad", "自用")
+        );
+
+        assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
+        assertThat(response.message()).isEqualTo("category is required");
+        assertThat(response.data()).isNull();
+    }
+
+    @Test
+    void suggestPriceReturnsSuggestionForValidCategory() {
+        ApiResponse<PriceSuggestResponse> response = aiController.suggestPrice(
+                new PriceSuggestRequest("数码", "iPad Air", "自用一年")
+        );
+
+        assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
+        assertThat(response.data().minPrice()).isEqualByComparingTo(BigDecimal.valueOf(200));
+        assertThat(response.data().suggestedPrice()).isPositive();
     }
 }

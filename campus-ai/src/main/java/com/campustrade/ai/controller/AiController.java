@@ -6,6 +6,8 @@ import com.campustrade.ai.dto.ContentCheckRequest;
 import com.campustrade.ai.dto.ContentCheckResponse;
 import com.campustrade.ai.dto.DescriptionOptimizeRequest;
 import com.campustrade.ai.dto.DescriptionOptimizeResponse;
+import com.campustrade.ai.dto.PriceSuggestRequest;
+import com.campustrade.ai.dto.PriceSuggestResponse;
 import com.campustrade.ai.provider.AiProvider;
 import com.campustrade.common.response.ApiResponse;
 import com.campustrade.common.response.ResultCode;
@@ -48,6 +50,14 @@ public class AiController {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "content is required");
         }
         return ApiResponse.success(aiProvider.checkContent(request));
+    }
+
+    @PostMapping("/price/suggest")
+    public ApiResponse<PriceSuggestResponse> suggestPrice(@RequestBody PriceSuggestRequest request) {
+        if (request == null || isBlank(request.category())) {
+            return ApiResponse.fail(ResultCode.BAD_REQUEST, "category is required");
+        }
+        return ApiResponse.success(aiProvider.suggestPrice(request));
     }
 
     private boolean isBlank(String value) {

@@ -6,8 +6,11 @@ import com.campustrade.ai.dto.ContentCheckRequest;
 import com.campustrade.ai.dto.ContentCheckResponse;
 import com.campustrade.ai.dto.DescriptionOptimizeRequest;
 import com.campustrade.ai.dto.DescriptionOptimizeResponse;
+import com.campustrade.ai.dto.PriceSuggestRequest;
+import com.campustrade.ai.dto.PriceSuggestResponse;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 
@@ -70,6 +73,68 @@ public class MockAiProvider implements AiProvider {
         }
 
         return new ContentCheckResponse(true, "content passed mock safety check");
+    }
+
+    @Override
+    public PriceSuggestResponse suggestPrice(PriceSuggestRequest request) {
+        String category = normalize(request == null ? null : request.category(), "其他");
+        String condition = joinText(
+                request == null ? null : request.title(),
+                request == null ? null : request.description()
+        );
+
+        int[] range = baseRange(category);
+        double factor = conditionFactor(condition);
+        int min = range[0];
+        int max = range[1];
+        long suggested = Math.round(min + (max - min) * factor);
+
+        String reason = "基于分类「" + category + "」" + conditionHint(factor)
+                + "给出参考价，建议区间 " + min + "-" + max + " 元，可按成色和配件适当浮动。";
+
+        return new PriceSuggestResponse(
+                BigDecimal.valueOf(suggested),
+                BigDecimal.valueOf(min),
+                BigDecimal.valueOf(max),
+                reason
+        );
+    }
+
+    private int[] baseRange(String category) {
+        String c = category.toLowerCase(Locale.ROOT);
+        if (c.contains("数码")) {
+            return new int[]{200, 3000};
+        }
+        if (c.contains("图书") || c.contains("书")) {
+            return new int[]{10, 80};
+        }
+        if (c.contains("生活")) {
+            return new int[]{15, 200};
+        }
+        if (c.contains("运动") || c.contains("户外")) {
+            return new int[]{30, 600};
+        }
+        return new int[]{20, 300};
+    }
+
+    private double conditionFactor(String text) {
+        if (containsAny(text, "全新", "未拆封", "未使用", "99新", "几乎全新")) {
+            return 0.8;
+        }
+        if (containsAny(text, "旧", "划痕", "磨损", "破损", "瑕疵", "屏碎")) {
+            return 0.25;
+        }
+        return 0.5;
+    }
+
+    private String conditionHint(double factor) {
+        if (factor >= 0.8) {
+            return "且描述接近全新，";
+        }
+        if (factor <= 0.25) {
+            return "且描述有使用痕迹，";
+        }
+        return "按正常二手成色，";
     }
 
     private String normalize(String value, String fallback) {

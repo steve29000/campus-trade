@@ -6,7 +6,11 @@ import com.campustrade.ai.dto.ContentCheckRequest;
 import com.campustrade.ai.dto.ContentCheckResponse;
 import com.campustrade.ai.dto.DescriptionOptimizeRequest;
 import com.campustrade.ai.dto.DescriptionOptimizeResponse;
+import com.campustrade.ai.dto.PriceSuggestRequest;
+import com.campustrade.ai.dto.PriceSuggestResponse;
 import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -85,5 +89,55 @@ class MockAiProviderTest {
 
         assertThat(response.passed()).isFalse();
         assertThat(response.reason()).contains("管制刀具");
+    }
+
+    @Test
+    void suggestPriceReturnsDigitalRangeWithNormalCondition() {
+        PriceSuggestResponse response = aiProvider.suggestPrice(
+                new PriceSuggestRequest("数码", "iPad Air", "自用一年，功能正常")
+        );
+
+        assertThat(response.minPrice()).isEqualByComparingTo(BigDecimal.valueOf(200));
+        assertThat(response.maxPrice()).isEqualByComparingTo(BigDecimal.valueOf(3000));
+        assertThat(response.suggestedPrice()).isEqualByComparingTo(BigDecimal.valueOf(1600));
+        assertThat(response.reason()).contains("数码");
+    }
+
+    @Test
+    void suggestPriceLeansHighForBrandNewCondition() {
+        PriceSuggestResponse response = aiProvider.suggestPrice(
+                new PriceSuggestRequest("数码", "iPad Air", "全新未拆封，正品行货")
+        );
+
+        assertThat(response.suggestedPrice()).isEqualByComparingTo(BigDecimal.valueOf(2440));
+    }
+
+    @Test
+    void suggestPriceLeansLowForWornCondition() {
+        PriceSuggestResponse response = aiProvider.suggestPrice(
+                new PriceSuggestRequest("数码", "iPad Air", "屏幕有划痕，使用痕迹明显")
+        );
+
+        assertThat(response.suggestedPrice()).isEqualByComparingTo(BigDecimal.valueOf(900));
+    }
+
+    @Test
+    void suggestPriceReturnsBookRangeForBooks() {
+        PriceSuggestResponse response = aiProvider.suggestPrice(
+                new PriceSuggestRequest("图书", "考研英语", "教材和真题")
+        );
+
+        assertThat(response.minPrice()).isEqualByComparingTo(BigDecimal.valueOf(10));
+        assertThat(response.maxPrice()).isEqualByComparingTo(BigDecimal.valueOf(80));
+    }
+
+    @Test
+    void suggestPriceFallsBackToOtherRangeForUnknownCategory() {
+        PriceSuggestResponse response = aiProvider.suggestPrice(
+                new PriceSuggestRequest("盲盒", "毕业闲置", "有需要可以聊")
+        );
+
+        assertThat(response.minPrice()).isEqualByComparingTo(BigDecimal.valueOf(20));
+        assertThat(response.maxPrice()).isEqualByComparingTo(BigDecimal.valueOf(300));
     }
 }
