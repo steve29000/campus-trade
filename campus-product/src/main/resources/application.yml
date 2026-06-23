@@ -8,6 +8,11 @@ spring:
     nacos:
       discovery:
         server-addr: localhost:8848
+    sentinel:
+      eager: true
+      transport:
+        # Sentinel 控制台地址；控制台未启动时只产生连接警告，不影响限流本身。
+        dashboard: localhost:8858
   datasource:
     url: jdbc:mysql://localhost:3306/campus_product_db?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     driver-class-name: com.mysql.cj.jdbc.Driver

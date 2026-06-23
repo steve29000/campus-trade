@@ -374,3 +374,20 @@
 - 配置中心的典型价值是共享配置单点维护（如 user 与 gateway 共用的 JWT secret），改一处即可。
 - 测试要与配置中心解耦：要么用 test 资源覆盖，要么用 `@SpringBootTest(properties=...)` 注入并关闭 Nacos config，避免单测依赖外部 Nacos。
 - 注册中心和配置中心可以是同一个 Nacos 实例，分别由 nacos-discovery 与 nacos-config starter 接入。
+
+## 2026-06-22：Sentinel 限流
+
+### 本次完成
+
+- `campus-product` 接入 `spring-cloud-starter-alibaba-sentinel`，对 `GET /product`（资源名为 URL 路径 `/product`）配置 QPS 限流（3 次/秒）。
+- 限流规则用代码方式加载（`SentinelFlowConfig`，便于演示复现），自定义 `SentinelBlockHandler` 在被限流时返回 HTTP 429 + 统一 `ApiResponse`（`{"code":429,"message":"请求过于频繁，请稍后再试"}`），替代 Sentinel 默认纯文本响应。
+- 用 Docker 启动 Sentinel 控制台（容器 `campus-sentinel`，`localhost:8858`），product 通过 `transport.dashboard` + `eager: true` 启动即连。
+- 新增 `docs/sentinel/README.md`（控制台启动、规则说明、限流验证步骤）。
+- 真实运行验证：1 秒内并发 15 次 `/product`，约 3 个 200、其余 429，限流响应为自定义 JSON。
+
+### 学到的内容
+
+- Spring Boot 3（jakarta）的 Sentinel webmvc 适配器在 `com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.callback` 包下，`BlockExceptionHandler.handle` 是 4 参版本（多了 `resourceName`），与旧版包路径/签名不同。
+- Sentinel 的限流核心不依赖控制台：规则在代码或 Nacos 数据源里即可生效，控制台主要用于监控和动态调整。
+- web 自动埋点下，资源名默认就是请求的 URL 路径（如 `/product`），按它配置流控规则即可。
+- 自定义 `BlockExceptionHandler` 能把限流响应统一成项目的 `ApiResponse` 结构，前端处理更一致。
