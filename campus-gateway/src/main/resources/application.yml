@@ -1,8 +1,10 @@
 server:
   port: 8080
 
-# jwt.secret / jwt.expiration 现由 Nacos 配置中心的 campus-shared.yaml 提供（见下方 spring.config.import），
-# 与 campus-user 共享同一份配置，无需在两处各写一遍。
+# 本地开发提供 JWT 兜底配置；Nacos campus-shared.yaml 或环境变量可覆盖这些值。
+jwt:
+  secret: ${JWT_SECRET:campus-trade-local-dev-secret-change-before-production-0123456789}
+  expiration: ${JWT_EXPIRATION:86400000}
 
 spring:
   application:

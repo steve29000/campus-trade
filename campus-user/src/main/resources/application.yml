@@ -29,4 +29,7 @@ mybatis-plus:
     map-underscore-to-camel-case: true
     default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
 
-# jwt.secret / jwt.expiration 现由 Nacos 配置中心的 campus-shared.yaml 提供（见上方 spring.config.import）。
+# 本地开发提供 JWT 兜底配置；Nacos campus-shared.yaml 或环境变量可覆盖这些值。
+jwt:
+  secret: ${JWT_SECRET:campus-trade-local-dev-secret-change-before-production-0123456789}
+  expiration: ${JWT_EXPIRATION:86400000}
