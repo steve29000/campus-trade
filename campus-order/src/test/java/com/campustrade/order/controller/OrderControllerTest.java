@@ -21,56 +21,62 @@ class OrderControllerTest {
     void createDelegatesToOrderService() {
         OrderCreateRequest request = new OrderCreateRequest(2L, 1L, 10L);
 
-        ApiResponse<OrderResponse> response = orderController.create(request);
+        ApiResponse<OrderResponse> response = orderController.create(request, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).isEqualTo(orderService.order);
         assertThat(orderService.createRequest).isEqualTo(request);
+        assertThat(orderService.authenticatedUserId).isEqualTo(2L);
     }
 
     @Test
     void findByIdDelegatesToOrderService() {
-        ApiResponse<OrderResponse> response = orderController.findById(7L);
+        ApiResponse<OrderResponse> response = orderController.findById(7L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).isEqualTo(orderService.order);
         assertThat(orderService.id).isEqualTo(7L);
+        assertThat(orderService.authenticatedUserId).isEqualTo(2L);
     }
 
     @Test
     void listByBuyerIdDelegatesToOrderService() {
-        ApiResponse<List<OrderResponse>> response = orderController.listByBuyerId(2L);
+        ApiResponse<List<OrderResponse>> response = orderController.listByBuyerId(2L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).containsExactly(orderService.order);
         assertThat(orderService.buyerId).isEqualTo(2L);
+        assertThat(orderService.authenticatedUserId).isEqualTo(2L);
     }
 
     @Test
     void listBySellerIdDelegatesToOrderService() {
-        ApiResponse<List<OrderResponse>> response = orderController.listBySellerId(1L);
+        ApiResponse<List<OrderResponse>> response = orderController.listBySellerId(1L, 1L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).containsExactly(orderService.order);
         assertThat(orderService.sellerId).isEqualTo(1L);
+        assertThat(orderService.authenticatedUserId).isEqualTo(1L);
     }
 
     @Test
     void cancelDelegatesToOrderService() {
-        ApiResponse<OrderResponse> response = orderController.cancel(7L);
+        ApiResponse<OrderResponse> response = orderController.cancel(7L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).isEqualTo(orderService.order);
         assertThat(orderService.id).isEqualTo(7L);
+        assertThat(orderService.authenticatedUserId).isEqualTo(2L);
     }
 
     @Test
     void completeDelegatesToOrderService() {
-        ApiResponse<OrderResponse> response = orderController.complete(7L);
+        ApiResponse<OrderResponse> response = orderController.complete(7L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).isEqualTo(orderService.order);
         assertThat(orderService.id).isEqualTo(7L);
+        assertThat(orderService.authenticatedUserId).isEqualTo(2L);
     }
 
     private static class CapturingOrderService extends OrderService {
@@ -89,44 +95,51 @@ class OrderControllerTest {
         private Long id;
         private Long buyerId;
         private Long sellerId;
+        private Long authenticatedUserId;
 
         private CapturingOrderService() {
             super(null, null, null);
         }
 
         @Override
-        public ApiResponse<OrderResponse> create(OrderCreateRequest request) {
+        public ApiResponse<OrderResponse> create(OrderCreateRequest request, Long authenticatedUserId) {
             this.createRequest = request;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(order);
         }
 
         @Override
-        public ApiResponse<OrderResponse> findById(Long id) {
+        public ApiResponse<OrderResponse> findById(Long id, Long authenticatedUserId) {
             this.id = id;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(order);
         }
 
         @Override
-        public ApiResponse<List<OrderResponse>> listByBuyerId(Long buyerId) {
+        public ApiResponse<List<OrderResponse>> listByBuyerId(Long buyerId, Long authenticatedUserId) {
             this.buyerId = buyerId;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(List.of(order));
         }
 
         @Override
-        public ApiResponse<List<OrderResponse>> listBySellerId(Long sellerId) {
+        public ApiResponse<List<OrderResponse>> listBySellerId(Long sellerId, Long authenticatedUserId) {
             this.sellerId = sellerId;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(List.of(order));
         }
 
         @Override
-        public ApiResponse<OrderResponse> cancel(Long id) {
+        public ApiResponse<OrderResponse> cancel(Long id, Long authenticatedUserId) {
             this.id = id;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(order);
         }
 
         @Override
-        public ApiResponse<OrderResponse> complete(Long id) {
+        public ApiResponse<OrderResponse> complete(Long id, Long authenticatedUserId) {
             this.id = id;
+            this.authenticatedUserId = authenticatedUserId;
             return ApiResponse.success(order);
         }
     }

@@ -36,17 +36,14 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
-        // 用真实的 OrderMapper（参与测试事务，跑 H2）+ 假的 Feign client 组装 service，
-        // 避免与 Spring Cloud 默认 @Primary 的 Feign client bean 冲突。
         orderService = new OrderService(userClient, productClient, orderMapper);
     }
 
     @Test
-    void createLoadsProductSnapshotFromProductService() {
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+    void createUsesAuthenticatedUserAsBuyerAndProductOwnerAsSeller() {
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(99L, 88L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
-        assertThat(response.message()).isEqualTo(ResultCode.SUCCESS.getMessage());
         assertThat(response.data().id()).isPositive();
         assertThat(response.data())
                 .extracting(
@@ -60,13 +57,14 @@ class OrderServiceTest {
                 .containsExactly(2L, 1L, 10L, "iPad Air", BigDecimal.valueOf(2800), OrderStatus.CREATED);
         assertThat(userClient.requestedIds).containsExactly(2L, 1L);
         assertThat(productClient.requestedIds).containsExactly(10L);
-        assertThat(productClient.soldProductIds).containsExactly(10L);
+        assertThat(productClient.statusUpdateProductIds).containsExactly(10L);
+        assertThat(productClient.statusUpdateUserIds).containsExactly(1L);
         assertThat(productClient.statusOf(10L)).isEqualTo(ProductClientStatus.SOLD);
     }
 
     @Test
-    void createRejectsMissingBuyerId() {
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(null, 1L, 10L));
+    void createRejectsMissingAuthenticatedUserId() {
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L), null);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("buyer id is required");
@@ -76,30 +74,8 @@ class OrderServiceTest {
     }
 
     @Test
-    void createRejectsMissingSellerId() {
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, null, 10L));
-
-        assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
-        assertThat(response.message()).isEqualTo("seller id is required");
-        assertThat(response.data()).isNull();
-        assertThat(userClient.requestedIds).isEmpty();
-        assertThat(productClient.requestedIds).isEmpty();
-    }
-
-    @Test
-    void createRejectsSameBuyerAndSellerBeforeRemoteCalls() {
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 2L, 10L));
-
-        assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
-        assertThat(response.message()).isEqualTo("buyer and seller cannot be the same");
-        assertThat(response.data()).isNull();
-        assertThat(userClient.requestedIds).isEmpty();
-        assertThat(productClient.requestedIds).isEmpty();
-    }
-
-    @Test
     void createRejectsMissingProductId() {
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, null));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, null), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("product id is required");
@@ -112,7 +88,7 @@ class OrderServiceTest {
     void createRejectsMissingBuyerFromUserService() {
         userClient.missingIds.add(2L);
 
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(99L, 1L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("buyer not found");
@@ -122,34 +98,34 @@ class OrderServiceTest {
     }
 
     @Test
+    void createRejectsMissingProductFromProductService() {
+        productClient.missingIds.add(10L);
+
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L), 2L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
+        assertThat(response.message()).isEqualTo("product not found");
+        assertThat(response.data()).isNull();
+        assertThat(userClient.requestedIds).containsExactly(2L);
+    }
+
+    @Test
     void createRejectsMissingSellerFromUserService() {
         userClient.missingIds.add(1L);
 
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 99L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("seller not found");
         assertThat(response.data()).isNull();
         assertThat(userClient.requestedIds).containsExactly(2L, 1L);
-        assertThat(productClient.requestedIds).isEmpty();
-    }
-
-    @Test
-    void createRejectsMissingProductFromProductService() {
-        productClient.missingIds.add(10L);
-
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
-
-        assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
-        assertThat(response.message()).isEqualTo("product not found");
-        assertThat(response.data()).isNull();
     }
 
     @Test
     void createRejectsProductThatIsNotOnSale() {
         productClient.defaultStatus = ProductClientStatus.OFF_SALE;
 
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("product is not on sale");
@@ -157,34 +133,35 @@ class OrderServiceTest {
     }
 
     @Test
-    void createRejectsSellerThatDoesNotOwnProduct() {
-        productClient.sellerId = 99L;
+    void createRejectsBuyerBuyingOwnProductUsingProductOwner() {
+        productClient.defaultSellerId = 2L;
 
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(99L, 1L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
-        assertThat(response.message()).isEqualTo("seller does not match product owner");
+        assertThat(response.message()).isEqualTo("buyer and seller cannot be the same");
         assertThat(response.data()).isNull();
     }
 
     @Test
     void createRejectsSecondOrderForSoldProduct() {
-        ApiResponse<OrderResponse> first = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> first = orderService.create(orderRequest(2L, 1L, 10L), 2L);
 
-        ApiResponse<OrderResponse> second = orderService.create(orderRequest(3L, 1L, 10L));
+        ApiResponse<OrderResponse> second = orderService.create(orderRequest(3L, 1L, 10L), 3L);
 
         assertThat(first.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(second.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(second.message()).isEqualTo("product is not on sale");
         assertThat(second.data()).isNull();
-        assertThat(productClient.soldProductIds).containsExactly(10L);
+        assertThat(productClient.statusUpdateProductIds).containsExactly(10L);
+        assertThat(productClient.statusUpdateUserIds).containsExactly(1L);
     }
 
     @Test
     void createReturnsSystemErrorWhenUserServiceThrowsException() {
         userClient.throwException = true;
 
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
         assertThat(response.message()).isEqualTo("remote service unavailable");
@@ -195,7 +172,7 @@ class OrderServiceTest {
     void createReturnsSystemErrorWhenProductServiceThrowsException() {
         productClient.throwException = true;
 
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
         assertThat(response.message()).isEqualTo("remote service unavailable");
@@ -206,7 +183,7 @@ class OrderServiceTest {
     void createReturnsSystemErrorWhenProductStatusUpdateFails() {
         productClient.failStatusUpdate = true;
 
-        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L));
+        ApiResponse<OrderResponse> response = orderService.create(orderRequest(2L, 1L, 10L), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
         assertThat(response.message()).isEqualTo("product status update failed");
@@ -214,8 +191,29 @@ class OrderServiceTest {
     }
 
     @Test
+    void findByIdAllowsOrderParticipant() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+
+        ApiResponse<OrderResponse> buyerResponse = orderService.findById(created.id(), 2L);
+        ApiResponse<OrderResponse> sellerResponse = orderService.findById(created.id(), 1L);
+
+        assertThat(buyerResponse.code()).isEqualTo(ResultCode.SUCCESS.getCode());
+        assertThat(sellerResponse.code()).isEqualTo(ResultCode.SUCCESS.getCode());
+    }
+
+    @Test
+    void findByIdRejectsNonParticipant() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+
+        ApiResponse<OrderResponse> response = orderService.findById(created.id(), 99L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.FORBIDDEN.getCode());
+        assertThat(response.data()).isNull();
+    }
+
+    @Test
     void findByIdReturnsNotFoundForMissingOrder() {
-        ApiResponse<OrderResponse> response = orderService.findById(99L);
+        ApiResponse<OrderResponse> response = orderService.findById(99L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("order not found");
@@ -223,71 +221,89 @@ class OrderServiceTest {
     }
 
     @Test
-    void listByBuyerIdReturnsOrdersSortedByIdAscending() {
-        OrderResponse first = orderService.create(orderRequest(2L, 1L, 10L)).data();
-        orderService.create(orderRequest(3L, 1L, 11L));
-        OrderResponse second = orderService.create(orderRequest(2L, 1L, 12L)).data();
+    void listByBuyerIdReturnsOrdersSortedByIdAscendingForSameUser() {
+        OrderResponse first = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+        orderService.create(orderRequest(3L, 1L, 11L), 3L);
+        OrderResponse second = orderService.create(orderRequest(2L, 1L, 12L), 2L).data();
 
-        ApiResponse<List<OrderResponse>> response = orderService.listByBuyerId(2L);
-
-        assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
-        assertThat(response.data()).extracting(OrderResponse::id).containsExactly(first.id(), second.id());
-    }
-
-    @Test
-    void listBySellerIdReturnsOrdersSortedByIdAscending() {
-        OrderResponse first = orderService.create(orderRequest(2L, 1L, 10L)).data();
-        orderService.create(orderRequest(2L, 4L, 11L));
-        OrderResponse second = orderService.create(orderRequest(3L, 1L, 12L)).data();
-
-        ApiResponse<List<OrderResponse>> response = orderService.listBySellerId(1L);
+        ApiResponse<List<OrderResponse>> response = orderService.listByBuyerId(2L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data()).extracting(OrderResponse::id).containsExactly(first.id(), second.id());
     }
 
     @Test
-    void cancelChangesOrderStatusToCancelled() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+    void listByBuyerIdRejectsDifferentAuthenticatedUser() {
+        ApiResponse<List<OrderResponse>> response = orderService.listByBuyerId(2L, 99L);
 
-        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
-
-        assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
-        assertThat(response.data().status()).isEqualTo(OrderStatus.CANCELLED);
-        assertThat(orderService.findById(created.id()).data().status()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(response.code()).isEqualTo(ResultCode.FORBIDDEN.getCode());
+        assertThat(response.data()).isNull();
     }
 
     @Test
-    void cancelRestoresProductToOnSale() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
-        assertThat(productClient.statusOf(10L)).isEqualTo(ProductClientStatus.SOLD);
+    void listBySellerIdReturnsOrdersSortedByIdAscendingForSameUser() {
+        OrderResponse first = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+        productClient.sellersById.put(11L, 4L);
+        orderService.create(orderRequest(2L, 4L, 11L), 2L);
+        OrderResponse second = orderService.create(orderRequest(3L, 1L, 12L), 3L).data();
 
-        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+        ApiResponse<List<OrderResponse>> response = orderService.listBySellerId(1L, 1L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
+        assertThat(response.data()).extracting(OrderResponse::id).containsExactly(first.id(), second.id());
+    }
+
+    @Test
+    void listBySellerIdRejectsDifferentAuthenticatedUser() {
+        ApiResponse<List<OrderResponse>> response = orderService.listBySellerId(1L, 99L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.FORBIDDEN.getCode());
+        assertThat(response.data()).isNull();
+    }
+
+    @Test
+    void cancelChangesOrderStatusToCancelledForParticipantAndRestoresProductWithSellerHeader() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id(), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data().status()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(orderService.findById(created.id(), 2L).data().status()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(productClient.statusOf(10L)).isEqualTo(ProductClientStatus.ON_SALE);
+        assertThat(productClient.statusUpdateUserIds).containsExactly(1L, 1L);
+    }
+
+    @Test
+    void cancelRejectsNonParticipant() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id(), 99L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.FORBIDDEN.getCode());
+        assertThat(response.data()).isNull();
+        assertThat(productClient.statusOf(10L)).isEqualTo(ProductClientStatus.SOLD);
     }
 
     @Test
     void cancelReturnsSystemErrorWhenProductRestoreFails() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
         productClient.failStatusUpdate = true;
 
-        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id(), 1L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
         assertThat(response.message()).isEqualTo("product status restore failed");
         assertThat(response.data()).isNull();
-        assertThat(orderService.findById(created.id()).data().status()).isEqualTo(OrderStatus.CREATED);
+        assertThat(orderService.findById(created.id(), 2L).data().status()).isEqualTo(OrderStatus.CREATED);
     }
 
     @Test
     void cancelReturnsSystemErrorWhenProductServiceThrowsDuringRestore() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
         productClient.throwException = true;
 
-        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id(), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SYSTEM_ERROR.getCode());
         assertThat(response.message()).isEqualTo("remote service unavailable");
@@ -296,10 +312,10 @@ class OrderServiceTest {
 
     @Test
     void cancelIsIdempotentWhenAlreadyCancelled() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
-        orderService.cancel(created.id());
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+        orderService.cancel(created.id(), 2L);
 
-        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id(), 1L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data().status()).isEqualTo(OrderStatus.CANCELLED);
@@ -308,10 +324,10 @@ class OrderServiceTest {
 
     @Test
     void cancelRejectsCompletedOrder() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
-        orderService.complete(created.id());
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+        orderService.complete(created.id(), 1L);
 
-        ApiResponse<OrderResponse> response = orderService.cancel(created.id());
+        ApiResponse<OrderResponse> response = orderService.cancel(created.id(), 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("completed order cannot be cancelled");
@@ -320,7 +336,7 @@ class OrderServiceTest {
 
     @Test
     void cancelReturnsNotFoundForMissingOrder() {
-        ApiResponse<OrderResponse> response = orderService.cancel(99L);
+        ApiResponse<OrderResponse> response = orderService.cancel(99L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("order not found");
@@ -328,22 +344,33 @@ class OrderServiceTest {
     }
 
     @Test
-    void completeChangesOrderStatusToCompleted() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
+    void completeChangesOrderStatusToCompletedForParticipant() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
 
-        ApiResponse<OrderResponse> response = orderService.complete(created.id());
+        ApiResponse<OrderResponse> response = orderService.complete(created.id(), 1L);
 
         assertThat(response.code()).isEqualTo(ResultCode.SUCCESS.getCode());
         assertThat(response.data().status()).isEqualTo(OrderStatus.COMPLETED);
-        assertThat(orderService.findById(created.id()).data().status()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(orderService.findById(created.id(), 2L).data().status()).isEqualTo(OrderStatus.COMPLETED);
+    }
+
+    @Test
+    void completeRejectsNonParticipant() {
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+
+        ApiResponse<OrderResponse> response = orderService.complete(created.id(), 99L);
+
+        assertThat(response.code()).isEqualTo(ResultCode.FORBIDDEN.getCode());
+        assertThat(response.data()).isNull();
+        assertThat(orderService.findById(created.id(), 2L).data().status()).isEqualTo(OrderStatus.CREATED);
     }
 
     @Test
     void completeRejectsCancelledOrder() {
-        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L)).data();
-        orderService.cancel(created.id());
+        OrderResponse created = orderService.create(orderRequest(2L, 1L, 10L), 2L).data();
+        orderService.cancel(created.id(), 2L);
 
-        ApiResponse<OrderResponse> response = orderService.complete(created.id());
+        ApiResponse<OrderResponse> response = orderService.complete(created.id(), 1L);
 
         assertThat(response.code()).isEqualTo(ResultCode.BAD_REQUEST.getCode());
         assertThat(response.message()).isEqualTo("cancelled order cannot be completed");
@@ -352,7 +379,7 @@ class OrderServiceTest {
 
     @Test
     void completeReturnsNotFoundForMissingOrder() {
-        ApiResponse<OrderResponse> response = orderService.complete(99L);
+        ApiResponse<OrderResponse> response = orderService.complete(99L, 2L);
 
         assertThat(response.code()).isEqualTo(ResultCode.NOT_FOUND.getCode());
         assertThat(response.message()).isEqualTo("order not found");
@@ -386,9 +413,11 @@ class OrderServiceTest {
 
         private final List<Long> requestedIds = new java.util.ArrayList<>();
         private final List<Long> missingIds = new java.util.ArrayList<>();
-        private final List<Long> soldProductIds = new java.util.ArrayList<>();
+        private final List<Long> statusUpdateProductIds = new java.util.ArrayList<>();
+        private final List<Long> statusUpdateUserIds = new java.util.ArrayList<>();
+        private final java.util.Map<Long, Long> sellersById = new java.util.HashMap<>();
         private final java.util.Map<Long, ProductClientStatus> statusesById = new java.util.HashMap<>();
-        private Long sellerId = 1L;
+        private Long defaultSellerId = 1L;
         private ProductClientStatus defaultStatus = ProductClientStatus.ON_SALE;
         private boolean throwException;
         private boolean failStatusUpdate;
@@ -406,14 +435,19 @@ class OrderServiceTest {
         }
 
         @Override
-        public ApiResponse<ProductClientResponse> updateStatus(Long id, ProductStatusUpdateClientRequest request) {
+        public ApiResponse<ProductClientResponse> updateStatus(
+                Long id,
+                ProductStatusUpdateClientRequest request,
+                Long userId
+        ) {
             if (throwException) {
                 throw new IllegalStateException("product service unavailable");
             }
             if (failStatusUpdate) {
                 return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "update failed");
             }
-            soldProductIds.add(id);
+            statusUpdateProductIds.add(id);
+            statusUpdateUserIds.add(userId);
             statusesById.put(id, ProductClientStatus.valueOf(request.status()));
             return remoteSuccess(product(id));
         }
@@ -421,7 +455,7 @@ class OrderServiceTest {
         private ProductClientResponse product(Long id) {
             return new ProductClientResponse(
                     id,
-                    sellerId,
+                    sellersById.getOrDefault(id, defaultSellerId),
                     id == 10L ? "iPad Air" : "Product " + id,
                     "Campus item",
                     "数码",

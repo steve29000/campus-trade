@@ -31,30 +31,20 @@ public class OrderService {
         this.orderMapper = orderMapper;
     }
 
-    public ApiResponse<OrderResponse> create(OrderCreateRequest request) {
-        ApiResponse<OrderResponse> validation = validateCreateRequest(request);
+    public ApiResponse<OrderResponse> create(OrderCreateRequest request, Long authenticatedUserId) {
+        ApiResponse<OrderResponse> validation = validateCreateRequest(request, authenticatedUserId);
         if (validation != null) {
             return validation;
         }
 
         ApiResponse<UserProfileClientResponse> buyerResponse;
         try {
-            buyerResponse = userClient.findProfile(request.buyerId());
+            buyerResponse = userClient.findProfile(authenticatedUserId);
         } catch (RuntimeException exception) {
             return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
         }
         if (!isSuccessWithData(buyerResponse)) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "buyer not found");
-        }
-
-        ApiResponse<UserProfileClientResponse> sellerResponse;
-        try {
-            sellerResponse = userClient.findProfile(request.sellerId());
-        } catch (RuntimeException exception) {
-            return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
-        }
-        if (!isSuccessWithData(sellerResponse)) {
-            return ApiResponse.fail(ResultCode.NOT_FOUND, "seller not found");
         }
 
         ApiResponse<ProductClientResponse> productResponse;
@@ -71,15 +61,27 @@ public class OrderService {
         if (product.status() != ProductClientStatus.ON_SALE) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "product is not on sale");
         }
-        if (!request.sellerId().equals(product.sellerId())) {
-            return ApiResponse.fail(ResultCode.BAD_REQUEST, "seller does not match product owner");
+        Long sellerId = product.sellerId();
+        if (authenticatedUserId.equals(sellerId)) {
+            return ApiResponse.fail(ResultCode.BAD_REQUEST, "buyer and seller cannot be the same");
+        }
+
+        ApiResponse<UserProfileClientResponse> sellerResponse;
+        try {
+            sellerResponse = userClient.findProfile(sellerId);
+        } catch (RuntimeException exception) {
+            return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
+        }
+        if (!isSuccessWithData(sellerResponse)) {
+            return ApiResponse.fail(ResultCode.NOT_FOUND, "seller not found");
         }
 
         ApiResponse<ProductClientResponse> soldResponse;
         try {
             soldResponse = productClient.updateStatus(
                     request.productId(),
-                    new ProductStatusUpdateClientRequest(ProductClientStatus.SOLD.name())
+                    new ProductStatusUpdateClientRequest(ProductClientStatus.SOLD.name()),
+                    sellerId
             );
         } catch (RuntimeException exception) {
             return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
@@ -89,8 +91,8 @@ public class OrderService {
         }
 
         OrderEntity order = new OrderEntity();
-        order.setBuyerId(request.buyerId());
-        order.setSellerId(request.sellerId());
+        order.setBuyerId(authenticatedUserId);
+        order.setSellerId(sellerId);
         order.setProductId(request.productId());
         order.setProductTitle(product.title());
         order.setPrice(product.price());
@@ -100,18 +102,24 @@ public class OrderService {
         return ApiResponse.success(toResponse(order));
     }
 
-    public ApiResponse<OrderResponse> findById(Long id) {
+    public ApiResponse<OrderResponse> findById(Long id, Long authenticatedUserId) {
         OrderEntity order = orderMapper.selectById(id);
         if (order == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "order not found");
+        }
+        if (!isParticipant(order, authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only order participants can access this order");
         }
 
         return ApiResponse.success(toResponse(order));
     }
 
-    public ApiResponse<List<OrderResponse>> listByBuyerId(Long buyerId) {
+    public ApiResponse<List<OrderResponse>> listByBuyerId(Long buyerId, Long authenticatedUserId) {
         if (buyerId == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "buyer id is required");
+        }
+        if (!buyerId.equals(authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only the buyer can list buyer orders");
         }
 
         List<OrderResponse> orders = orderMapper.selectList(
@@ -125,9 +133,12 @@ public class OrderService {
         return ApiResponse.success(orders);
     }
 
-    public ApiResponse<List<OrderResponse>> listBySellerId(Long sellerId) {
+    public ApiResponse<List<OrderResponse>> listBySellerId(Long sellerId, Long authenticatedUserId) {
         if (sellerId == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "seller id is required");
+        }
+        if (!sellerId.equals(authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only the seller can list seller orders");
         }
 
         List<OrderResponse> orders = orderMapper.selectList(
@@ -141,10 +152,13 @@ public class OrderService {
         return ApiResponse.success(orders);
     }
 
-    public ApiResponse<OrderResponse> cancel(Long id) {
+    public ApiResponse<OrderResponse> cancel(Long id, Long authenticatedUserId) {
         OrderEntity order = orderMapper.selectById(id);
         if (order == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "order not found");
+        }
+        if (!isParticipant(order, authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only order participants can cancel this order");
         }
         if (order.getStatus() == OrderStatus.COMPLETED) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "completed order cannot be cancelled");
@@ -159,7 +173,8 @@ public class OrderService {
         try {
             restoreResponse = productClient.updateStatus(
                     order.getProductId(),
-                    new ProductStatusUpdateClientRequest(ProductClientStatus.ON_SALE.name())
+                    new ProductStatusUpdateClientRequest(ProductClientStatus.ON_SALE.name()),
+                    order.getSellerId()
             );
         } catch (RuntimeException exception) {
             return ApiResponse.fail(ResultCode.SYSTEM_ERROR, "remote service unavailable");
@@ -174,10 +189,13 @@ public class OrderService {
         return ApiResponse.success(toResponse(order));
     }
 
-    public ApiResponse<OrderResponse> complete(Long id) {
+    public ApiResponse<OrderResponse> complete(Long id, Long authenticatedUserId) {
         OrderEntity order = orderMapper.selectById(id);
         if (order == null) {
             return ApiResponse.fail(ResultCode.NOT_FOUND, "order not found");
+        }
+        if (!isParticipant(order, authenticatedUserId)) {
+            return ApiResponse.fail(ResultCode.FORBIDDEN, "only order participants can complete this order");
         }
         if (order.getStatus() == OrderStatus.CANCELLED) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "cancelled order cannot be completed");
@@ -189,21 +207,21 @@ public class OrderService {
         return ApiResponse.success(toResponse(order));
     }
 
-    private ApiResponse<OrderResponse> validateCreateRequest(OrderCreateRequest request) {
-        if (request == null || request.buyerId() == null) {
+    private ApiResponse<OrderResponse> validateCreateRequest(OrderCreateRequest request, Long authenticatedUserId) {
+        if (authenticatedUserId == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "buyer id is required");
         }
-        if (request.sellerId() == null) {
-            return ApiResponse.fail(ResultCode.BAD_REQUEST, "seller id is required");
-        }
-        if (request.buyerId().equals(request.sellerId())) {
-            return ApiResponse.fail(ResultCode.BAD_REQUEST, "buyer and seller cannot be the same");
-        }
-        if (request.productId() == null) {
+        if (request == null || request.productId() == null) {
             return ApiResponse.fail(ResultCode.BAD_REQUEST, "product id is required");
         }
 
         return null;
+    }
+
+    private boolean isParticipant(OrderEntity order, Long authenticatedUserId) {
+        return authenticatedUserId != null
+                && (authenticatedUserId.equals(order.getBuyerId())
+                || authenticatedUserId.equals(order.getSellerId()));
     }
 
     private boolean isSuccessWithData(ApiResponse<?> response) {

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @FeignClient(name = "campus-product")
 public interface ProductClient {
@@ -18,6 +19,7 @@ public interface ProductClient {
     @PutMapping("/product/{id}/status")
     ApiResponse<ProductClientResponse> updateStatus(
             @PathVariable("id") Long id,
-            @RequestBody ProductStatusUpdateClientRequest request
+            @RequestBody ProductStatusUpdateClientRequest request,
+            @RequestHeader("X-User-Id") Long userId
     );
 }
