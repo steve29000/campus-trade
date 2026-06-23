@@ -4,10 +4,16 @@ server:
 spring:
   application:
     name: campus-user
+  config:
+    # 从 Nacos 配置中心导入共享配置（含 jwt.secret），optional 保证 Nacos 不可达时不阻断启动。
+    import: "optional:nacos:campus-shared.yaml"
   cloud:
     nacos:
       discovery:
         server-addr: localhost:8848
+      config:
+        server-addr: localhost:8848
+        file-extension: yaml
   datasource:
     url: jdbc:mysql://localhost:3306/campus_user_db?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -19,7 +25,4 @@ mybatis-plus:
     map-underscore-to-camel-case: true
     default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
 
-jwt:
-  # user 与 gateway 必须使用相同的 secret；生产环境应通过环境变量/配置中心注入。
-  secret: campus-trade-jwt-secret-key-change-me-in-production-0123456789
-  expiration: 86400000
+# jwt.secret / jwt.expiration 现由 Nacos 配置中心的 campus-shared.yaml 提供（见上方 spring.config.import）。

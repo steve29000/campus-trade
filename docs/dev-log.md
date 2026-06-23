@@ -357,3 +357,20 @@
 - 自定义文档标题/版本通过一个 `OpenAPI` bean（`io.swagger.v3.oas.models`）设置即可。
 - 网关是 WebFlux，与各 servlet 服务的 knife4j 不同源，统一聚合文档需要单独配置，作为后续项。
 - 文档接口（`/doc.html`、`/v3/api-docs`）当前直连各服务访问；若要经网关访问需在网关白名单放行。
+
+## 2026-06-22：Nacos 配置中心（共享 JWT 配置）
+
+### 本次完成
+
+- `campus-user` 和 `campus-gateway` 接入 Spring Cloud Alibaba Nacos Config，通过 `spring.config.import: "optional:nacos:campus-shared.yaml"` 从配置中心导入共享配置。
+- 把原先写在两个服务 `application.yml` 里的 `jwt.secret` / `jwt.expiration` 抽到 Nacos 共享配置 `campus-shared.yaml`，消除重复，单点维护。
+- 新增 `docs/nacos/campus-shared.yaml`（配置内容）和 `docs/nacos/README.md`（推送/验证步骤）。
+- 测试不依赖 Nacos：user 测试用 test 资源里的 `jwt.secret`；gateway 的 `@SpringBootTest` 用 `properties` 注入测试 secret 并关闭 Nacos config（`spring.config.import=` 置空 + `nacos.config.enabled=false`）。
+- 真实运行验证：user 与 gateway 日志均出现 `Listening config: dataId=campus-shared.yaml`；secret 仅存在于 Nacos 时，登录签发 token、网关用同一 secret 校验通过（带 token 200、不带 401）。
+
+### 学到的内容
+
+- Spring Cloud 2023 用 `spring.config.import` 接入 Nacos Config，不再需要 bootstrap.yml；`optional:` 前缀保证配置中心不可达时不阻断启动。
+- 配置中心的典型价值是共享配置单点维护（如 user 与 gateway 共用的 JWT secret），改一处即可。
+- 测试要与配置中心解耦：要么用 test 资源覆盖，要么用 `@SpringBootTest(properties=...)` 注入并关闭 Nacos config，避免单测依赖外部 Nacos。
+- 注册中心和配置中心可以是同一个 Nacos 实例，分别由 nacos-discovery 与 nacos-config starter 接入。

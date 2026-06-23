@@ -1,18 +1,21 @@
 server:
   port: 8080
 
-jwt:
-  # 必须与 campus-user 的 jwt.secret 保持一致。
-  secret: campus-trade-jwt-secret-key-change-me-in-production-0123456789
-  expiration: 86400000
+# jwt.secret / jwt.expiration 现由 Nacos 配置中心的 campus-shared.yaml 提供（见下方 spring.config.import），
+# 与 campus-user 共享同一份配置，无需在两处各写一遍。
 
 spring:
   application:
     name: campus-gateway
+  config:
+    import: "optional:nacos:campus-shared.yaml"
   cloud:
     nacos:
       discovery:
         server-addr: localhost:8848
+      config:
+        server-addr: localhost:8848
+        file-extension: yaml
     gateway:
       routes:
         - id: campus-user

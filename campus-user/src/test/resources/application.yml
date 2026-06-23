@@ -3,6 +3,8 @@ spring:
     nacos:
       discovery:
         enabled: false
+      config:
+        enabled: false
     discovery:
       enabled: false
   datasource:

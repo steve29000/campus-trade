@@ -71,7 +71,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 | `/ai/**` | `campus-ai` | `lb://campus-ai` |
 | `/message/**` | `campus-message` | `lb://campus-message` |
 
-当前 `campus-gateway` 负责路由转发和 **JWT 鉴权**。网关上的 `JwtAuthFilter`（全局过滤器）放行 `/user/login` 和 `/user/register`，其余请求必须携带有效的 `Authorization: Bearer <token>`，否则直接返回 401；校验通过后把用户 id 放进 `X-User-Id` 请求头传给下游。token 由 `campus-user` 登录时签发，网关与用户服务通过共享的 `jwt.secret` 校验同一个 JWT（共享工具 `JwtUtil` 在 `campus-common`）。CORS 自定义、Sentinel 限流/降级、路径重写和更完整的统一请求日志仍在后续阶段。
+当前 `campus-gateway` 负责路由转发和 **JWT 鉴权**。网关上的 `JwtAuthFilter`（全局过滤器）放行 `/user/login` 和 `/user/register`，其余请求必须携带有效的 `Authorization: Bearer <token>`，否则直接返回 401；校验通过后把用户 id 放进 `X-User-Id` 请求头传给下游。token 由 `campus-user` 登录时签发，网关与用户服务通过共享的 `jwt.secret` 校验同一个 JWT（共享工具 `JwtUtil` 在 `campus-common`）。该 `jwt.secret` 已抽到 **Nacos 配置中心**的共享配置 `campus-shared.yaml`，user 与 gateway 通过 `spring.config.import: optional:nacos:campus-shared.yaml` 导入，避免在两处各写一份（见 [`docs/nacos/README.md`](nacos/README.md)）。CORS 自定义、Sentinel 限流/降级、路径重写和更完整的统一请求日志仍在后续阶段。
 `lb://` 目标地址依赖 Spring Cloud LoadBalancer 和服务发现能力，当前测试会校验路由表以及 LoadBalancer 运行时支持是否存在。
 
 ### campus-user

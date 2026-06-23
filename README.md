@@ -143,6 +143,7 @@ docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
 11. `campus-user`、`campus-product`、`campus-order`、`campus-message` 接入 MyBatis Plus + MySQL（每服务独立库），内存存储替换为数据库。
 12. `campus-gateway` JWT 鉴权（登录/注册放行，其余校验 Bearer token），登录由 `campus-user` 签发 JWT，`JwtUtil` 在 `campus-common` 共享。
 13. 5 个 servlet 服务接入 Knife4j 交互式接口文档（`/doc.html`），基于 springdoc 自动从 controller 生成。
+14. `campus-user`、`campus-gateway` 接入 Nacos 配置中心，共享 `jwt.secret`（`campus-shared.yaml`），见 [docs/nacos/README.md](docs/nacos/README.md)。
 
 ## 开发原则
 
