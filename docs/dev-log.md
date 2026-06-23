@@ -408,3 +408,22 @@
 - 网关是 WebFlux，要用 `ReactiveStringRedisTemplate` 做异步查询，把黑名单判断接到过滤器的响应式链路里。
 - 本机测试 JVM 较新，Mockito/ByteBuddy mock 具体类（如 `RedisTemplate`）需要在 surefire 里加 `-Dnet.bytebuddy.experimental=true`；mock 接口则不受影响。
 - 共享常量（黑名单前缀）放公共模块，能避免签发方和校验方各写一份字符串导致不一致。
+
+## 2026-06-23：JWT 身份透传与资源授权加固
+
+### 本次完成
+
+- `campus-gateway` 的登录/注册白名单改为精确匹配，避免 `/user/login-extra` 这类相似路径被误放行。
+- 网关转发前会移除客户端伪造的 `X-User-Id`，再写入 JWT 中解析出的可信用户 id。
+- `campus-user` 与 `campus-gateway` 增加本地开发 JWT 兜底配置；Nacos 共享配置或环境变量仍可覆盖。
+- `campus-product` 发布商品和更新状态改用 `X-User-Id` 做卖家身份和归属校验。
+- `campus-order` 创建订单改用 `X-User-Id` 作为买家，卖家来自商品服务；订单详情、买家/卖家列表、取消、完成都校验订单参与者。
+- `campus-message` 发布留言改用 `X-User-Id` 作为发送者，隐藏和删除只允许留言发送者操作。
+- 补充 gateway/product/order/message 的权限回归测试，并修复 Maven surefire 插件版本警告。
+
+### 学到的内容
+
+- JWT 鉴权只回答“你是谁”，资源授权还要在具体业务服务里判断“你能不能操作这个资源”。
+- 请求体里的 `sellerId`、`buyerId`、`senderId` 不能作为可信身份来源；经 gateway 的请求应以 JWT 透传的 `X-User-Id` 为准。
+- 网关转发身份头时要先清理客户端传入的同名 header，否则下游可能读到伪造值或多值 header。
+- 微服务之间复用公共接口时，要明确内部调用如何通过资源授权；当前 order 调 product 状态更新时携带商品 seller id，后续可进一步拆分内部接口。

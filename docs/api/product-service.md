@@ -1,12 +1,12 @@
 # campus-product API
 
-This document describes the current `campus-product` first-stage API. It is intended for local course-project demos and early integration notes before Swagger/Knife4j is added.
+This document describes the current `campus-product` API for local course-project demos. Knife4j is available at `/doc.html`; this Markdown file keeps the learning notes and example payloads readable in GitHub.
 
 ## Current Phase Notes
 
-- Product data is stored in memory inside the running `campus-product` process only.
-- Published products are lost when the service restarts.
-- This stage focuses on product publishing, browsing, detail lookup, and status updates before MyBatis Plus/MySQL persistence is added.
+- Product data is persisted in MySQL through MyBatis Plus.
+- Write APIs use the trusted `X-User-Id` header forwarded by `campus-gateway`.
+- When calling services through the gateway, send `Authorization: Bearer <token>`; when testing a service directly, provide `X-User-Id` manually.
 - Supported product status values are `ON_SALE`, `OFF_SALE`, and `SOLD`.
 - Responses use the shared `ApiResponse` envelope:
 
@@ -24,7 +24,7 @@ The `code` field is an application-level response body code. The current skeleto
 
 `POST /product`
 
-Creates an in-memory product listing. A new product starts with status `ON_SALE`.
+Creates a product listing. A new product starts with status `ON_SALE`. The seller id is taken from `X-User-Id`; the request body `sellerId` is ignored if present.
 
 Before the product is stored, `campus-product` calls `campus-ai` (`POST /ai/content/check`) with the title and description joined together. If the content fails the mock safety check, the publish is rejected with `FORBIDDEN` and the rejection reason from the AI service. If the AI service is unreachable or returns an error, the publish is rejected with `SYSTEM_ERROR`. Field validation runs first, so a request that fails validation never reaches the AI service.
 
@@ -32,7 +32,6 @@ Before the product is stored, `campus-product` calls `campus-ai` (`POST /ai/cont
 
 ```json
 {
-  "sellerId": 1,
   "title": "iPad Air",
   "description": "自用一年，功能正常",
   "category": "数码",
@@ -60,7 +59,7 @@ Before the product is stored, `campus-product` calls `campus-ai` (`POST /ai/cont
 
 ### Example Validation Failures
 
-Missing seller id:
+Missing authenticated user id:
 
 ```json
 {
@@ -106,7 +105,7 @@ Content that hits a prohibited keyword (returned by `campus-ai`):
 
 `GET /product`
 
-Returns products from the current in-memory store.
+Returns products from the database.
 
 ### Query Parameters
 
@@ -158,7 +157,7 @@ Invalid status:
 
 `GET /product/{id}`
 
-Returns one product from the current in-memory store.
+Returns one product from the database.
 
 ### Path Parameters
 
@@ -200,7 +199,7 @@ Unknown product id:
 
 `PUT /product/{id}/status`
 
-Updates a product status in the current in-memory store.
+Updates a product status. Only the product seller, identified by `X-User-Id`, can update the status.
 
 ### Request
 
@@ -236,6 +235,16 @@ Invalid or blank status:
 {
   "code": 400,
   "message": "invalid product status",
+  "data": null
+}
+```
+
+Non-seller status update:
+
+```json
+{
+  "code": 403,
+  "message": "only product seller can update status",
   "data": null
 }
 ```

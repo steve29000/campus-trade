@@ -31,6 +31,7 @@
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <jjwt.version>0.12.6</jjwt.version>
         <knife4j.version>4.5.0</knife4j.version>
+        <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -97,6 +98,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
                 <configuration>
                     <!-- 本机测试 JVM 为较新版本，ByteBuddy 需开启 experimental 才能 mock 具体类（如 RedisTemplate）。 -->
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>

@@ -1,12 +1,13 @@
 # campus-message API
 
-This document describes the current `campus-message` API. It is intended for local course-project demos and early integration notes before Swagger/Knife4j is added.
+This document describes the current `campus-message` API for local course-project demos. Knife4j is available at `/doc.html`; this Markdown file keeps the learning notes and example payloads readable in GitHub.
 
 ## Current Phase Notes
 
-- Message data is stored in memory inside the running `campus-message` process only.
-- Created messages are lost when the service restarts.
+- Message data is persisted in MySQL through MyBatis Plus.
 - Posting a message calls `campus-user` and `campus-product` through OpenFeign to verify the sender and the product exist.
+- Write APIs use the trusted `X-User-Id` header forwarded by `campus-gateway`.
+- When calling services through the gateway, send `Authorization: Bearer <token>`; when testing a service directly, provide `X-User-Id` manually.
 - The sender or product not existing is rejected; the remote service being unavailable returns `SYSTEM_ERROR`.
 - Listing messages for a product returns only `VISIBLE` messages, sorted by id ascending.
 - Hiding a message keeps it stored but excludes it from the product listing; deleting a message removes it.
@@ -25,14 +26,13 @@ This document describes the current `campus-message` API. It is intended for loc
 
 `POST /message`
 
-Creates an in-memory message on a product. A new message starts with status `VISIBLE`.
+Creates a message on a product. A new message starts with status `VISIBLE`. The sender id is taken from `X-User-Id`; the request body `senderId` is ignored if present.
 
 ### Request
 
 ```json
 {
   "productId": 100,
-  "senderId": 2,
   "content": "在吗，这个还在吗？"
 }
 ```
@@ -65,7 +65,7 @@ Missing product id:
 }
 ```
 
-Missing sender id:
+Missing authenticated sender id:
 
 ```json
 {
@@ -139,7 +139,7 @@ Returns the `VISIBLE` messages for a product, sorted by id ascending.
 
 `PUT /message/{id}/hide`
 
-Marks a message as `HIDDEN` so it no longer appears in the product listing. Hiding an already-hidden message is idempotent.
+Marks a message as `HIDDEN` so it no longer appears in the product listing. Only the original sender can hide it. Hiding an already-hidden message is idempotent.
 
 ### Success Response
 
@@ -167,11 +167,19 @@ Marks a message as `HIDDEN` so it no longer appears in the product listing. Hidi
 }
 ```
 
+```json
+{
+  "code": 403,
+  "message": "only message sender can modify this message",
+  "data": null
+}
+```
+
 ## Delete Message
 
 `DELETE /message/{id}`
 
-Removes a message from the in-memory store.
+Removes a message from the database. Only the original sender can delete it.
 
 ### Success Response
 
@@ -189,6 +197,14 @@ Removes a message from the in-memory store.
 {
   "code": 404,
   "message": "message not found",
+  "data": null
+}
+```
+
+```json
+{
+  "code": 403,
+  "message": "only message sender can modify this message",
   "data": null
 }
 ```

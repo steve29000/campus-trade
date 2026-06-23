@@ -1,16 +1,15 @@
 # campus-order API
 
-This document describes the current `campus-order` API. It is intended for local course-project demos and early integration notes before Swagger/Knife4j is added.
+This document describes the current `campus-order` API for local course-project demos. Knife4j is available at `/doc.html`; this Markdown file keeps the learning notes and example payloads readable in GitHub.
 
 ## Current Phase Notes
 
-- Order data is stored in memory inside the running `campus-order` process only.
-- Created orders are lost when the service restarts.
+- Order data is persisted in MySQL through MyBatis Plus.
 - This stage does not implement online payment. Campus second-hand trades remain offline face-to-face transactions.
 - Creating an order calls `campus-user` and `campus-product` through OpenFeign.
-- The client only submits `buyerId`, `sellerId`, and `productId`; `productTitle` and `price` are copied from the product service response.
+- The client submits `productId`; `buyerId` comes from trusted `X-User-Id`, and `sellerId`, `productTitle`, and `price` are copied from the product service response.
 - After an order is created, `campus-order` calls `campus-product` to update the product status to `SOLD`.
-- For local manual testing, register the buyer and seller first, then publish the product with the same `sellerId` used by the order request.
+- When calling services through the gateway, send `Authorization: Bearer <token>`; when testing a service directly, provide `X-User-Id` manually.
 - Supported order status values are `CREATED`, `CANCELLED`, and `COMPLETED`.
 - Responses use the shared `ApiResponse` envelope:
 
@@ -28,15 +27,13 @@ The `code` field is an application-level response body code. The current skeleto
 
 `POST /order`
 
-Creates an in-memory order after validating buyer, seller, and product through OpenFeign. A new order starts with status `CREATED`.
-The product is marked as `SOLD` after successful order creation, so the same product cannot be ordered again in the simple in-memory demo flow.
+Creates an order after validating buyer, seller, and product through OpenFeign. A new order starts with status `CREATED`.
+The product is marked as `SOLD` after successful order creation, so the same product cannot be ordered again in the simple demo flow.
 
 ### Request
 
 ```json
 {
-  "buyerId": 2,
-  "sellerId": 1,
   "productId": 10
 }
 ```
@@ -61,22 +58,12 @@ The product is marked as `SOLD` after successful order creation, so the same pro
 
 ### Example Validation Failures
 
-Missing buyer id:
+Missing authenticated buyer id:
 
 ```json
 {
   "code": 400,
   "message": "buyer id is required",
-  "data": null
-}
-```
-
-Missing seller id:
-
-```json
-{
-  "code": 400,
-  "message": "seller id is required",
   "data": null
 }
 ```
@@ -141,16 +128,6 @@ Product is not on sale:
 }
 ```
 
-Seller does not match product owner:
-
-```json
-{
-  "code": 400,
-  "message": "seller does not match product owner",
-  "data": null
-}
-```
-
 Product status update fails:
 
 ```json
@@ -175,7 +152,7 @@ Remote service unavailable:
 
 `GET /order/{id}`
 
-Returns one order from the current in-memory store.
+Returns one order from the database. Only the buyer or seller can access the order.
 
 ### Path Parameters
 
@@ -213,11 +190,21 @@ Unknown order id:
 }
 ```
 
+Authenticated user is not a participant:
+
+```json
+{
+  "code": 403,
+  "message": "only order participants can access this order",
+  "data": null
+}
+```
+
 ## Buyer Orders
 
 `GET /order/buyer/{buyerId}`
 
-Returns orders for one buyer from the current in-memory store, sorted by order id ascending.
+Returns orders for one buyer from the database, sorted by order id ascending. The path `buyerId` must match `X-User-Id`.
 
 ### Path Parameters
 
@@ -257,11 +244,21 @@ Missing buyer id:
 }
 ```
 
+Authenticated user is not the buyer:
+
+```json
+{
+  "code": 403,
+  "message": "only the buyer can list buyer orders",
+  "data": null
+}
+```
+
 ## Seller Orders
 
 `GET /order/seller/{sellerId}`
 
-Returns orders for one seller from the current in-memory store, sorted by order id ascending.
+Returns orders for one seller from the database, sorted by order id ascending. The path `sellerId` must match `X-User-Id`.
 
 ### Path Parameters
 
@@ -301,11 +298,21 @@ Missing seller id:
 }
 ```
 
+Authenticated user is not the seller:
+
+```json
+{
+  "code": 403,
+  "message": "only the seller can list seller orders",
+  "data": null
+}
+```
+
 ## Cancel Order
 
 `PUT /order/{id}/cancel`
 
-Cancels an order in the current in-memory store. A completed order cannot be cancelled.
+Cancels an order. Only the buyer or seller can cancel it. A completed order cannot be cancelled.
 
 When a non-cancelled order is cancelled, `campus-order` calls `campus-product` to restore the product status from `SOLD` back to `ON_SALE`, so the product can be ordered again. Cancelling an already-cancelled order is idempotent and does not call the product service again. If the product status restore fails, the cancel returns `SYSTEM_ERROR` and the order stays `CREATED`.
 
@@ -355,11 +362,21 @@ Completed order:
 }
 ```
 
+Authenticated user is not a participant:
+
+```json
+{
+  "code": 403,
+  "message": "only order participants can cancel this order",
+  "data": null
+}
+```
+
 ## Complete Order
 
 `PUT /order/{id}/complete`
 
-Completes an order in the current in-memory store. A cancelled order cannot be completed.
+Completes an order. Only the buyer or seller can complete it. A cancelled order cannot be completed.
 
 ### Path Parameters
 
@@ -403,6 +420,16 @@ Cancelled order:
 {
   "code": 400,
   "message": "cancelled order cannot be completed",
+  "data": null
+}
+```
+
+Authenticated user is not a participant:
+
+```json
+{
+  "code": 403,
+  "message": "only order participants can complete this order",
   "data": null
 }
 ```

@@ -71,7 +71,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 | `/ai/**` | `campus-ai` | `lb://campus-ai` |
 | `/message/**` | `campus-message` | `lb://campus-message` |
 
-当前 `campus-gateway` 负责路由转发和 **JWT 鉴权**。网关上的 `JwtAuthFilter`（全局过滤器）放行 `/user/login` 和 `/user/register`，其余请求必须携带有效的 `Authorization: Bearer <token>`，否则直接返回 401；校验通过后把用户 id 放进 `X-User-Id` 请求头传给下游。token 由 `campus-user` 登录时签发，网关与用户服务通过共享的 `jwt.secret` 校验同一个 JWT（共享工具 `JwtUtil` 在 `campus-common`）。该 `jwt.secret` 已抽到 **Nacos 配置中心**的共享配置 `campus-shared.yaml`，user 与 gateway 通过 `spring.config.import: optional:nacos:campus-shared.yaml` 导入，避免在两处各写一份（见 [`docs/nacos/README.md`](nacos/README.md)）。此外，`campus-user` 提供 `POST /user/logout` 把 token 写入 **Redis 黑名单**（TTL=剩余有效期），网关在校验签名后会查黑名单，已登出的 token 即使签名有效也返回 401（见 [`docs/redis/README.md`](redis/README.md)）。CORS 自定义、路径重写和更完整的统一请求日志仍在后续阶段。
+当前 `campus-gateway` 负责路由转发和 **JWT 鉴权**。网关上的 `JwtAuthFilter`（全局过滤器）精确放行 `/user/login` 和 `/user/register`，其余请求必须携带有效的 `Authorization: Bearer <token>`，否则直接返回 401；校验通过后会移除客户端伪造的 `X-User-Id`，再把 JWT 中的用户 id 放进 `X-User-Id` 请求头传给下游。token 由 `campus-user` 登录时签发，网关与用户服务通过共享的 `jwt.secret` 校验同一个 JWT（共享工具 `JwtUtil` 在 `campus-common`）。该 `jwt.secret` 优先由 **Nacos 配置中心**的共享配置 `campus-shared.yaml` 或环境变量提供，user 与 gateway 也保留本地开发兜底值，避免未推 Nacos 配置时无法启动（见 [`docs/nacos/README.md`](nacos/README.md)）。此外，`campus-user` 提供 `POST /user/logout` 把 token 写入 **Redis 黑名单**（TTL=剩余有效期），网关在校验签名后会查黑名单，已登出的 token 即使签名有效也返回 401（见 [`docs/redis/README.md`](redis/README.md)）。CORS 自定义、路径重写和更完整的统一请求日志仍在后续阶段。
 `lb://` 目标地址依赖 Spring Cloud LoadBalancer 和服务发现能力，当前测试会校验路由表以及 LoadBalancer 运行时支持是否存在。
 
 ### campus-user
@@ -92,7 +92,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - `POST /user/login`
 - `GET /user/{id}`
 
-第一阶段用户数据暂存在服务内存中，便于课程演示 controller-service 分层；后续再接入数据库、密码加密和完整认证。
+用户数据已持久化到 MySQL（`campus_user_db`）。登录成功后由 `campus-user` 签发 JWT，登出时把 token 写入 Redis 黑名单；密码加密和更完整的角色权限仍是后续阶段。
 
 ### campus-product
 
@@ -114,7 +114,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - `GET /product/{id}`
 - `PUT /product/{id}/status`
 
-商品数据已持久化到 MySQL（`campus_product_db`），支持发布、按关键词/分类/状态筛选、详情查询和状态更新。商品状态包括 `ON_SALE`、`OFF_SALE` 和 `SOLD`。商品发布时，`campus-product` 通过 OpenFeign 调用 `campus-ai` 的内容检查接口（`POST /ai/content/check`）对标题和描述做违规检测：命中违规返回 `FORBIDDEN` 并拒绝发布，AI 服务不可用返回 `SYSTEM_ERROR`，字段校验先于内容检查执行。`campus-product` 还接入了 **Sentinel** 流量控制：对 `GET /product` 配置 QPS 限流，超限请求返回统一的 HTTP 429（`SentinelBlockHandler`），可连接 Sentinel 控制台监控（见 [`docs/sentinel/README.md`](sentinel/README.md)）。描述优化和智能分类的接入留待后续阶段。
+商品数据已持久化到 MySQL（`campus_product_db`），支持发布、按关键词/分类/状态筛选、详情查询和状态更新。商品状态包括 `ON_SALE`、`OFF_SALE` 和 `SOLD`。商品发布时，`campus-product` 使用网关透传的 `X-User-Id` 作为卖家 id，不信任请求体中的 `sellerId`；商品状态更新只有商品卖家可以操作。发布前会通过 OpenFeign 调用 `campus-ai` 的内容检查接口（`POST /ai/content/check`）对标题和描述做违规检测：命中违规返回 `FORBIDDEN` 并拒绝发布，AI 服务不可用返回 `SYSTEM_ERROR`，字段校验先于内容检查执行。`campus-product` 还接入了 **Sentinel** 流量控制：对 `GET /product` 配置 QPS 限流，超限请求返回统一的 HTTP 429（`SentinelBlockHandler`），可连接 Sentinel 控制台监控（见 [`docs/sentinel/README.md`](sentinel/README.md)）。描述优化和智能分类的接入留待后续阶段。
 
 ### campus-order
 
@@ -139,7 +139,7 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - `PUT /order/{id}/cancel`
 - `PUT /order/{id}/complete`
 
-当前订单数据暂存在服务内存中，支持订单创建、详情查询、买家订单列表、卖家订单列表、取消和完成。订单状态包括 `CREATED`、`CANCELLED` 和 `COMPLETED`。创建订单时，客户端只提交 `buyerId`、`sellerId` 和 `productId`，订单服务通过 OpenFeign 查询用户和商品：买家或卖家不存在时拒绝创建，商品不存在、非 `ON_SALE` 或商品发布者与 `sellerId` 不匹配时拒绝创建。订单响应中的商品标题和价格来自 `campus-product` 的商品快照。订单创建成功前，`campus-order` 会调用 `campus-product` 将商品状态更新为 `SOLD`，避免当前内存演示流程中重复下单。本阶段不实现在线支付，校园二手交易仍默认线下面交。后续持久化阶段会通过 MyBatis Plus 和 MySQL 将当前内存订单迁移到数据库，并进一步处理并发下单和跨服务一致性问题。
+订单数据已持久化到 MySQL（`campus_order_db`），支持订单创建、详情查询、买家订单列表、卖家订单列表、取消和完成。订单状态包括 `CREATED`、`CANCELLED` 和 `COMPLETED`。创建订单时，`campus-order` 使用网关透传的 `X-User-Id` 作为买家 id，不信任请求体中的 `buyerId`；卖家 id 来自 `campus-product` 返回的商品发布者。订单服务通过 OpenFeign 查询用户和商品：买家或卖家不存在、商品不存在或商品非 `ON_SALE` 时拒绝创建；买家不能购买自己的商品。订单详情、列表、取消和完成都会校验当前用户是否为订单买家或卖家。订单创建成功前，`campus-order` 会调用 `campus-product` 将商品状态更新为 `SOLD`，取消订单时回滚为 `ON_SALE`；该调用会携带商品卖家 id 作为内部服务间身份头，让商品服务的卖家授权校验通过。本阶段不实现在线支付，校园二手交易仍默认线下面交。并发下单和跨服务一致性补偿仍是后续阶段。
 
 ### campus-ai
 
@@ -171,7 +171,7 @@ AI 服务。
 - `PUT /message/{id}/hide`
 - `DELETE /message/{id}`
 
-当前留言数据暂存在服务内存中，支持留言发布、按商品查询、隐藏和删除。留言状态包括 `VISIBLE` 和 `HIDDEN`，按商品查询只返回 `VISIBLE` 留言并按 id 升序排列。发布留言时，`campus-message` 通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验发送者和商品是否存在：任一不存在时拒绝创建，远程服务不可用时返回 `SYSTEM_ERROR`。后续持久化阶段会通过 MyBatis Plus 和 MySQL 将内存留言迁移到数据库。
+留言数据已持久化到 MySQL（`campus_message_db`），支持留言发布、按商品查询、隐藏和删除。留言状态包括 `VISIBLE` 和 `HIDDEN`，按商品查询只返回 `VISIBLE` 留言并按 id 升序排列。发布留言时，`campus-message` 使用网关透传的 `X-User-Id` 作为发送者，不信任请求体中的 `senderId`，并通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验发送者和商品是否存在；隐藏和删除只允许留言发送者操作。
 
 ## 5. 服务调用关系
 
