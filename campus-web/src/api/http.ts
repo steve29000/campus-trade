@@ -1,6 +1,6 @@
 // fetch 封装：拼基址、带 JWT、解 ApiResponse 信封、错误归一。
 import { API_BASE } from './config';
-import { getToken } from './token';
+import { getToken, clearToken } from './token';
 import { ok, fail, type ApiResponse } from './types';
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResponse<T>> {
@@ -14,6 +14,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+
+    // token 失效/缺失：清掉本地令牌，路由守卫会在下次导航引导重新登录
+    if (res.status === 401) clearToken();
 
     let json: unknown = null;
     try {
