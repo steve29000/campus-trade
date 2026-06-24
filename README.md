@@ -15,7 +15,7 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 ## 核心功能
 
-- 用户注册、登录、JWT 鉴权
+- 用户注册、登录、后续 JWT 鉴权
 - 商品发布、编辑、浏览、搜索
 - 商品分类与状态管理
 - 订单创建、取消、完成
@@ -108,42 +108,75 @@ cd campus-web && cp .env.example .env.local && npm run dev # 取消注释 VITE_A
 
 ## 当前运行方式
 
-当前阶段只包含 Maven 多模块骨架和最小 Spring Boot 启动类，可以先执行：
+当前阶段包含 Maven 多模块骨架、`campus-user` 的注册/登录 mock/用户资料查询接口、`campus-ai` 的描述优化/分类预测/内容检查 mock 接口、`campus-product` 的商品发布/浏览/详情/状态更新接口、`campus-order` 的订单创建/查询/取消/完成接口、`campus-message` 的留言发布/查询/隐藏/删除接口，以及 `campus-gateway` 的基础路由转发配置。`campus-product` 发布时通过 OpenFeign 调用 `campus-ai` 做内容安全检查；`campus-order` 创建订单时通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验买家、卖家、商品并生成商品快照，下单成功前把商品状态更新为 `SOLD`，取消订单时回滚为 `ON_SALE`；`campus-message` 发布留言时校验发送者和商品。
+
+`campus-user`、`campus-product`、`campus-order`、`campus-message` 已接入 **MyBatis Plus + MySQL（每服务独立库）**，数据真正落库；`campus-ai` 为无状态 mock，不用数据库。`campus-gateway` 已接入 **JWT 鉴权**：登录/注册精确放行，其余请求需携带 `Authorization: Bearer <token>`，登录由 `campus-user` 签发 JWT。网关校验通过后会清理客户端伪造的 `X-User-Id`，再把 JWT 中的用户 id 作为可信身份传给下游；product、order、message 会基于该身份做资源授权。真实大模型接入、在线支付、CORS 自定义和路径重写仍在后续阶段之外；校园交易默认线下面交。
+
+不需要数据库即可执行单元测试（持久化层测试用 H2 内存库）：
 
 ```bash
 mvn test
 ```
 
-后续接入 Nacos 后，再分别启动各服务模块。
+如果终端提示 `mvn: command not found`，在本机 macOS + IntelliJ IDEA 环境中，可以使用 IntelliJ IDEA 自带的 Maven：
 
-## 第一阶段 10 个小 commit 计划
+```bash
+"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn" test
+```
 
-1. `docs: 初始化项目说明文档`
-   - 创建 `README.md`、`AGENTS.md`、`docs/dev-log.md`、`docs/architecture.md`、`docs/prompts/`。
-2. `chore: 初始化 Maven 父工程`
-   - 创建根 `pom.xml`，锁定 Java 17、Spring Boot、Spring Cloud Alibaba 版本管理。
-3. `chore: 添加 common 公共模块`
-   - 创建 `campus-common`，添加统一响应结构和基础异常占位。
-4. `chore: 添加 gateway 服务模块`
-   - 创建 `campus-gateway`，添加启动类和基础配置。
-5. `chore: 添加核心业务服务模块`
-   - 创建 `campus-user`、`campus-product`、`campus-order` 的基础启动类和配置。
-6. `chore: 添加 AI 服务模块`
-   - 创建 `campus-ai`，只保留启动类和 mock AI 能力规划。
-7. `feat: 接入 Nacos 服务发现基础配置`
-   - 为 gateway、user、product、order、ai 添加 Nacos Discovery 配置。
-8. `feat: 添加 gateway 基础路由`
-   - 配置 gateway 转发到 user、product、order、ai 服务。
-9. `feat: 添加 OpenFeign 示例调用`
-   - 选择 product 调用 ai 或 order 调用 product，完成一个最小服务间调用示例。
-10. `docs: 更新第一阶段开发记录和架构说明`
-    - 更新 `docs/dev-log.md` 和 `docs/architecture.md`，记录已完成内容、运行方式和下一阶段计划。
+如果要真实运行整套服务，需要先准备 MySQL 和 Nacos：
+
+```bash
+# 1. 启动 MySQL（Docker），并建库建表
+docker run -d --name campus-mysql -e MYSQL_ROOT_PASSWORD=campus1234 -p 3306:3306 mysql:8.0
+docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
+
+# 2. 启动 Nacos（服务注册发现）后，依次启动各服务
+#    campus-user / campus-product / campus-order / campus-message / campus-ai / campus-gateway
+```
+
+各服务默认数据源为 `localhost:3306`、账号 `root`、密码 `campus1234`，可在各自的 `application.yml` 中调整。手动体验下单链路：先注册并登录卖家，通过 gateway 带卖家 token 发布商品；再登录买家，通过 gateway 带买家 token 和商品 `productId` 创建订单。不要在请求体里伪造 `sellerId`、`buyerId` 或 `senderId`，服务会以 JWT 透传身份为准。
+
+## 接口文档
+
+除下面的 Markdown 文档外，5 个 servlet 服务（user/product/order/ai/message）已接入 **Knife4j**，启动后可直接访问交互式接口文档：`http://localhost:<服务端口>/doc.html`（例如用户服务 `http://localhost:8081/doc.html`），OpenAPI JSON 为 `/v3/api-docs`。
+
+- [campus-gateway routes](docs/api/gateway-routes.md)：记录当前网关路由表，包括 `/user/**`、`/product/**`、`/order/**`、`/ai/**` 和 `/message/**` 到各服务的转发关系。当前网关负责路由、JWT 鉴权、Redis token 黑名单校验和可信 `X-User-Id` 透传。
+- [campus-user API](docs/api/user-service.md)：记录当前用户服务接口，包括注册、登录、登出和用户资料查询示例。用户数据已持久化到 MySQL，登录返回真实 JWT。
+- [campus-ai API](docs/api/ai-service.md)：记录当前 AI mock 服务接口，包括描述优化、分类预测和内容检查示例。当前 AI provider 为确定性 mock-only 实现，不调用外部模型。
+- [campus-product API](docs/api/product-service.md)：记录当前商品服务接口，包括商品发布、列表筛选、详情查询和状态更新示例。商品数据已持久化到 MySQL，发布和状态更新使用 `X-User-Id` 做卖家授权。
+- [campus-order API](docs/api/order-service.md)：记录当前订单服务接口，包括基于 OpenFeign 的订单创建校验、详情查询、买家/卖家订单列表、取消和完成示例。订单数据已持久化到 MySQL，不包含在线支付。
+- [campus-message API](docs/api/message-service.md)：记录当前留言服务接口，包括基于 OpenFeign 的留言发布校验、按商品查询、隐藏和删除示例。留言数据已持久化到 MySQL，隐藏和删除仅允许留言发送者操作。
+
+## 功能阶段开发方式
+
+项目按功能阶段推进，而不是长期停留在一次只改一个微小文件的节奏。每个阶段围绕一个清晰的服务能力或基础设施能力展开，尽量同时补齐可运行代码、必要测试、接口文档和开发记录。
+
+当前已完成的早期阶段包括：
+
+1. 项目规划、Maven 多模块骨架和公共响应结构。
+2. `campus-user` 注册、登录、用户资料查询 mock 接口及对应测试和 API 文档。
+3. `campus-ai` 描述优化、分类预测、内容检查 mock 接口及对应测试和 API 文档。
+4. `campus-product` 商品发布、列表筛选、详情查询、状态更新内存版接口及 API 文档。
+5. `campus-order` 订单创建、详情查询、买家/卖家列表、取消、完成内存版接口及 API 文档。
+6. `campus-gateway` 基础路由表验证与网关路由文档。
+7. `campus-order` 通过 OpenFeign 调用 `campus-user` 和 `campus-product` 完成订单创建前校验。
+8. `campus-product` 商品发布通过 OpenFeign 调用 `campus-ai` 完成内容安全检查。
+9. `campus-message` 留言发布、按商品查询、隐藏、删除接口，通过 OpenFeign 校验发送者和商品。
+10. `campus-common` 全局异常处理（自动配置，servlet 服务统一兜底，gateway 安全跳过）。
+11. `campus-user`、`campus-product`、`campus-order`、`campus-message` 接入 MyBatis Plus + MySQL（每服务独立库），内存存储替换为数据库。
+12. `campus-gateway` JWT 鉴权（登录/注册放行，其余校验 Bearer token），登录由 `campus-user` 签发 JWT，`JwtUtil` 在 `campus-common` 共享。
+13. 5 个 servlet 服务接入 Knife4j 交互式接口文档（`/doc.html`），基于 springdoc 自动从 controller 生成。
+14. `campus-user`、`campus-gateway` 接入 Nacos 配置中心，共享 `jwt.secret`（`campus-shared.yaml`），见 [docs/nacos/README.md](docs/nacos/README.md)。
+15. `campus-product` 接入 Sentinel 流量控制（`GET /product` QPS 限流 + 统一 429 响应 + 控制台监控），见 [docs/sentinel/README.md](docs/sentinel/README.md)。
+16. `campus-user` 登出 + Redis token 黑名单，`campus-gateway` 校验时查黑名单，已登出 token 即时失效，见 [docs/redis/README.md](docs/redis/README.md)。
+17. 身份透传与资源授权加固：网关精确放行登录/注册、覆盖伪造 `X-User-Id`；product/order/message 不再信任请求体用户 id，改用 JWT 透传身份校验资源归属。
 
 ## 开发原则
 
-- 每次只做一个小任务。
-- 每次修改都同步 README、dev-log 或 architecture。
-- 每次提交保持小步、清晰、可回滚。
+- 每个功能阶段都要有清晰边界，避免把无关服务混在一起修改。
+- 重要阶段收尾时同步 README、dev-log、API 文档或 architecture。
+- 每次提交保持聚焦、清晰、可回滚。
 - 先保证项目能运行，再扩展完整功能。
-- AI 服务第一版只使用 mock provider。
+- AI 服务第一版只使用确定性 mock provider。
 - 不引入过度复杂的中间件和抽象。

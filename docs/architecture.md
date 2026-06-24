@@ -16,6 +16,8 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 
 ## 3. 技术选型
 
+下表包含当前骨架已使用的技术，以及后续阶段计划接入的技术。第一阶段优先保证服务能启动和接口结构清楚，数据库、JWT、Redis 等能力会在后续小步提交中逐步补齐。
+
 | 技术 | 用途 |
 | --- | --- |
 | Java 17 | 后端开发语言 |
@@ -43,21 +45,34 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 
 - 统一响应结构
 - 统一异常定义
+- 全局异常处理（servlet MVC 服务统一兜底）
+- JWT 工具（`JwtUtil`，user 签发、gateway 校验共用，自动配置）
 - 公共常量
 - 公共工具类
 - 基础 DTO
+
+`campus-common` 通过 Spring Boot 自动配置注册全局异常处理器 `GlobalExceptionHandler`，引入 servlet MVC 的服务（user、product、order、ai、message）无需额外配置即可统一兜底业务异常、请求解析错误和未预期异常，避免直接暴露框架 500 堆栈。自动配置使用 `@ConditionalOnClass(DispatcherServlet)` 守卫，`campus-gateway` 这类 WebFlux 模块会自动跳过，其响应式异常处理留待后续阶段单独接入。各服务保持现有约定：HTTP 状态固定为 200，真正的语义放在响应体的 `code` 字段里。
 
 ### campus-gateway
 
 系统统一入口。
 
-职责：
+当前职责：
 
 - 路由转发
-- 跨域配置
-- JWT 鉴权入口
-- 统一请求日志
-- 后续接入限流策略
+
+当前网关路由表：
+
+| Public Path | Service ID | Target URI |
+| --- | --- | --- |
+| `/user/**` | `campus-user` | `lb://campus-user` |
+| `/product/**` | `campus-product` | `lb://campus-product` |
+| `/order/**` | `campus-order` | `lb://campus-order` |
+| `/ai/**` | `campus-ai` | `lb://campus-ai` |
+| `/message/**` | `campus-message` | `lb://campus-message` |
+
+当前 `campus-gateway` 负责路由转发和 **JWT 鉴权**。网关上的 `JwtAuthFilter`（全局过滤器）精确放行 `/user/login` 和 `/user/register`，其余请求必须携带有效的 `Authorization: Bearer <token>`，否则直接返回 401；校验通过后会移除客户端伪造的 `X-User-Id`，再把 JWT 中的用户 id 放进 `X-User-Id` 请求头传给下游。token 由 `campus-user` 登录时签发，网关与用户服务通过共享的 `jwt.secret` 校验同一个 JWT（共享工具 `JwtUtil` 在 `campus-common`）。该 `jwt.secret` 优先由 **Nacos 配置中心**的共享配置 `campus-shared.yaml` 或环境变量提供，user 与 gateway 也保留本地开发兜底值，避免未推 Nacos 配置时无法启动（见 [`docs/nacos/README.md`](nacos/README.md)）。此外，`campus-user` 提供 `POST /user/logout` 把 token 写入 **Redis 黑名单**（TTL=剩余有效期），网关在校验签名后会查黑名单，已登出的 token 即使签名有效也返回 401（见 [`docs/redis/README.md`](redis/README.md)）。CORS 自定义、路径重写和更完整的统一请求日志仍在后续阶段。
+`lb://` 目标地址依赖 Spring Cloud LoadBalancer 和服务发现能力，当前测试会校验路由表以及 LoadBalancer 运行时支持是否存在。
 
 ### campus-user
 
@@ -67,9 +82,17 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 
 - 用户注册
 - 用户登录
-- JWT 签发
+- 登录成功签发 JWT（HMAC 签名，subject 为用户 id，附带 username）
 - 用户信息查询
 - 用户基础资料维护
+
+当前骨架接口：
+
+- `POST /user/register`
+- `POST /user/login`
+- `GET /user/{id}`
+
+用户数据已持久化到 MySQL（`campus_user_db`）。登录成功后由 `campus-user` 签发 JWT，登出时把 token 写入 Redis 黑名单；密码加密和更完整的角色权限仍是后续阶段。
 
 ### campus-product
 
@@ -84,6 +107,15 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - 商品分类管理
 - 调用 campus-ai 完成描述优化、智能分类和违规检测
 
+当前第一阶段接口：
+
+- `POST /product`
+- `GET /product`
+- `GET /product/{id}`
+- `PUT /product/{id}/status`
+
+商品数据已持久化到 MySQL（`campus_product_db`），支持发布、按关键词/分类/状态筛选、详情查询和状态更新。商品状态包括 `ON_SALE`、`OFF_SALE` 和 `SOLD`。商品发布时，`campus-product` 使用网关透传的 `X-User-Id` 作为卖家 id，不信任请求体中的 `sellerId`；商品状态更新只有商品卖家可以操作。发布前会通过 OpenFeign 调用 `campus-ai` 的内容检查接口（`POST /ai/content/check`）对标题和描述做违规检测：命中违规返回 `FORBIDDEN` 并拒绝发布，AI 服务不可用返回 `SYSTEM_ERROR`，字段校验先于内容检查执行。`campus-product` 还接入了 **Sentinel** 流量控制：对 `GET /product` 配置 QPS 限流，超限请求返回统一的 HTTP 429（`SentinelBlockHandler`），可连接 Sentinel 控制台监控（见 [`docs/sentinel/README.md`](sentinel/README.md)）。描述优化和智能分类的接入留待后续阶段。
+
 ### campus-order
 
 订单服务。
@@ -94,8 +126,20 @@ CampusTrade AI 是一个面向高校学生的校园二手交易平台。系统�
 - 查询订单
 - 取消订单
 - 完成订单
-- 调用 campus-product 查询商品信息
-- 调用 campus-user 查询用户信息
+- 通过 OpenFeign 调用 campus-user 校验买家和卖家
+- 通过 OpenFeign 调用 campus-product 查询商品信息
+- 从商品服务返回结果生成订单商品快照
+
+当前接口：
+
+- `POST /order`
+- `GET /order/{id}`
+- `GET /order/buyer/{buyerId}`
+- `GET /order/seller/{sellerId}`
+- `PUT /order/{id}/cancel`
+- `PUT /order/{id}/complete`
+
+订单数据已持久化到 MySQL（`campus_order_db`），支持订单创建、详情查询、买家订单列表、卖家订单列表、取消和完成。订单状态包括 `CREATED`、`CANCELLED` 和 `COMPLETED`。创建订单时，`campus-order` 使用网关透传的 `X-User-Id` 作为买家 id，不信任请求体中的 `buyerId`；卖家 id 来自 `campus-product` 返回的商品发布者。订单服务通过 OpenFeign 查询用户和商品：买家或卖家不存在、商品不存在或商品非 `ON_SALE` 时拒绝创建；买家不能购买自己的商品。订单详情、列表、取消和完成都会校验当前用户是否为订单买家或卖家。订单创建成功前，`campus-order` 会调用 `campus-product` 将商品状态更新为 `SOLD`，取消订单时回滚为 `ON_SALE`；该调用会携带商品卖家 id 作为内部服务间身份头，让商品服务的卖家授权校验通过。本阶段不实现在线支付，校园二手交易仍默认线下面交。并发下单和跨服务一致性补偿仍是后续阶段。
 
 ### campus-ai
 
@@ -106,12 +150,12 @@ AI 服务。
 - 商品描述优化
 - 商品智能分类
 - 商品违规内容检测
-- 第一版使用 mock provider
+- 当前使用 `MockAiProvider` 返回确定性 mock 结果
 - 后续可替换为真实大模型 API provider
 
 ### campus-message
 
-留言服务，可选。
+留言服务。
 
 职责：
 
@@ -119,6 +163,15 @@ AI 服务。
 - 买卖双方沟通
 - 留言查询
 - 留言删除或隐藏
+
+当前接口：
+
+- `POST /message`
+- `GET /message/product/{productId}`
+- `PUT /message/{id}/hide`
+- `DELETE /message/{id}`
+
+留言数据已持久化到 MySQL（`campus_message_db`），支持留言发布、按商品查询、隐藏和删除。留言状态包括 `VISIBLE` 和 `HIDDEN`，按商品查询只返回 `VISIBLE` 留言并按 id 升序排列。发布留言时，`campus-message` 使用网关透传的 `X-User-Id` 作为发送者，不信任请求体中的 `senderId`，并通过 OpenFeign 调用 `campus-user` 和 `campus-product` 校验发送者和商品是否存在；隐藏和删除只允许留言发送者操作。
 
 ## 5. 服务调用关系
 
@@ -138,31 +191,47 @@ campus-gateway
 
 ## 6. 数据库规划
 
-第一阶段可以为每个服务保留独立数据库命名，后续根据实现逐步创建表。
+`campus-user`、`campus-product`、`campus-order`、`campus-message` 已接入 MyBatis Plus + MySQL，采用**每服务独立库**，内存存储已全部替换为数据库表。`campus-ai` 为无状态 mock，不使用数据库。
 
-推荐数据库：
+当前数据库与主表：
 
-- campus_user_db
-- campus_product_db
-- campus_order_db
-- campus_message_db
-- campus_ai_db 可选，mock 阶段可以不建库
+- `campus_user_db.user`
+- `campus_product_db.product`
+- `campus_order_db.orders`（`order` 为保留字，表名用 `orders`）
+- `campus_message_db.message`
+- campus_ai_db 不需要
+
+建库建表脚本见 [`docs/sql/schema.sql`](sql/schema.sql)。本地用 Docker 运行 MySQL，可执行：
+
+```bash
+docker exec -i campus-mysql mysql -uroot -pcampus1234 < docs/sql/schema.sql
+```
+
+实现要点：
+
+- 主键为 BIGINT 自增（`@TableId(IdType.AUTO)`），替换原先的内存自增 id。
+- 枚举（`ProductStatus`/`OrderStatus`/`MessageStatus`）通过全局 `EnumTypeHandler` 按名称存为 VARCHAR。
+- 不建跨库外键；买家/卖家/商品/发送者的存在性仍由 OpenFeign 在 service 层校验，保持服务库独立。
+- 单元测试使用 H2（MySQL 兼容模式）跑真实 SQL，运行时连接 MySQL。
+- 数据源连接信息当前写在各服务 `application.yml`，后续可迁移到 Nacos 配置中心或环境变量。
 
 ## 7. AI 服务设计
 
-AI 服务第一版不接真实模型，只提供稳定接口和 mock 结果。
+AI 服务当前不接真实模型，不需要 API key，也不访问外部网络；它通过 `AiProvider` 接口隔离能力实现，当前 Spring 注入的是确定性的 `MockAiProvider`。
 
-接口规划：
+当前接口：
 
 - `POST /ai/description/optimize`
 - `POST /ai/category/predict`
 - `POST /ai/content/check`
 
-返回示例能力：
+当前行为：
 
-- 输入简单商品标题和描述，返回更完整的商品描述。
-- 根据标题和描述返回分类，例如 数码、图书、生活用品、运动户外。
-- 根据关键词判断是否包含违规内容。
+- 描述优化接口接收标题和描述，返回一段更完整、适合校园二手交易展示的描述。
+- 分类预测接口根据标题和描述中的关键词返回 `数码`、`图书`、`生活用品`、`运动户外` 或 `其他`，并返回固定置信度。
+- 内容检查接口根据 mock 关键词判断是否通过，命中明显违规词时返回不通过和原因。
+- 三个接口都使用 `campus-common` 的 `ApiResponse` 统一响应结构；请求缺少必要字段时返回 `BAD_REQUEST`。
+- 当前 AI 服务不使用数据库，也不会保存请求或结果。
 
 ## 8. 第一阶段验收标准
 

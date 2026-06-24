@@ -6,3 +6,5 @@ target/
 .vscode/
 .mvn/wrapper/maven-wrapper.jar
 .project-memory/
+.claude/
+docs/agent-worklog.md
