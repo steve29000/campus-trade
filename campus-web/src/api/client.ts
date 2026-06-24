@@ -1,7 +1,9 @@
-// Mock API client：当前由内存 db 支撑，返回与后端一致的 ApiResponse 信封。
-// 将来把这些方法体换成对 GATEWAY_BASE + EP.* 的 fetch 即可对接真实后端。
+// API client：默认由内存 db 支撑（mock），返回与后端一致的 ApiResponse 信封。
+// 设置 VITE_API_BASE 后，已支持的域（用户/商品）改走真实后端 HTTP，其余仍走 mock。
 import { db, genId } from '../data/db';
 import { DEMO_USER_ID } from '../data/seed';
+import { useHttp } from './config';
+import { httpApi } from './httpClient';
 import type {
   User,
   Category,
@@ -57,9 +59,9 @@ function toCard(p: Product): ProductCard {
 // 公开可见的商品状态（浏览列表）
 const PUBLIC_STATUSES: Product['status'][] = ['ON_SALE', 'RESERVED'];
 
-export const api = {
+const mockApi = {
   // ======================= 用户 / 认证 =======================
-  async login(emailOrId: string): Promise<ApiResponse<User>> {
+  async login(emailOrId: string, _password?: string): Promise<ApiResponse<User>> {
     await delay();
     const u = db.users.find((x) => x.id === emailOrId || x.email === emailOrId);
     if (!u) return fail(404, '账号不存在，请先注册');
@@ -72,7 +74,14 @@ export const api = {
     return ok(userById(DEMO_USER_ID)!);
   },
 
-  async register(payload: { nickname: string; email: string; school: string; campus: CampusId }): Promise<ApiResponse<User>> {
+  async register(payload: {
+    nickname: string;
+    email: string;
+    school: string;
+    campus: CampusId;
+    username?: string;
+    password?: string;
+  }): Promise<ApiResponse<User>> {
     await delay();
     if (db.users.some((u) => u.email === payload.email)) return fail(409, '邮箱已被注册');
     const now = Date.now();
@@ -567,4 +576,7 @@ export const api = {
   },
 };
 
-export type ApiClient = typeof api;
+// 根据 VITE_API_BASE 选择实现：HTTP 覆盖已支持的域，其余方法自动回退 mock。
+export const api = (useHttp ? { ...mockApi, ...httpApi } : mockApi) as typeof mockApi;
+
+export type ApiClient = typeof mockApi;

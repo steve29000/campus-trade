@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from '../api/client';
 import { isOk } from '../api/types';
+import { clearToken } from '../api/token';
 import type { User, CampusId } from '../domain/types';
 
 const UID_KEY = 'campus-web-uid';
@@ -34,10 +35,10 @@ export const useAuthStore = defineStore('auth', () => {
     else localStorage.removeItem(UID_KEY);
   }
 
-  async function login(emailOrId: string): Promise<string | null> {
+  async function login(emailOrId: string, password?: string): Promise<string | null> {
     loading.value = true;
     try {
-      const res = await api.login(emailOrId);
+      const res = await api.login(emailOrId, password);
       if (!isOk(res) || !res.data) return res.message;
       adopt(res.data);
       return null;
@@ -56,7 +57,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(payload: { nickname: string; email: string; school: string; campus: CampusId }): Promise<string | null> {
+  async function register(payload: {
+    nickname: string;
+    email: string;
+    school: string;
+    campus: CampusId;
+    username?: string;
+    password?: string;
+  }): Promise<string | null> {
     loading.value = true;
     try {
       const res = await api.register(payload);
@@ -87,6 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     user.value = null;
     localStorage.removeItem(UID_KEY);
+    clearToken();
   }
 
   return {
