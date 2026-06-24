@@ -52,6 +52,19 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 | campus-order | 订单创建、状态流转 |
 | campus-ai | AI mock 服务，提供描述优化、分类、审核 |
 | campus-message | 留言服务，可选模块 |
+| campus-web | 学生端 + 管理后台前端（Vue 3），见下方说明 |
+
+## 前端（campus-web）
+
+面向高校学生的 Web 前端 MVP，遵循"逻辑优先、页面其次"：先定三张流程图 + 数据模型 + 状态机（见 `docs/frontend-mvp.md`），再长出页面。
+
+- 技术栈：Vue 3 + Vite + TypeScript + Pinia + Vue Router。
+- 已跑通四个闭环：浏览（登录/认证/首页/搜索/详情/收藏）、发布（3 步 + AI 估价/文案 + 状态管理）、沟通（聊天 + 约交易 + 标记成交）、后台（概览/用户/商品/认证/举报）。
+- 当前用内存 Mock 数据，返回与 `campus-common` 一致的 `ApiResponse` 信封、路由对齐 `campus-gateway`，后端就绪后可平滑对接。
+
+```bash
+cd campus-web && npm install && npm run dev   # http://localhost:5180
+```
 
 ## 第一阶段目标
 
