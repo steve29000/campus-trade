@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import AdminLayout from '../../components/AdminLayout.vue';
 import ProductThumb from '../../components/ProductThumb.vue';
 import { useCatalogStore } from '../../stores/catalog';
 import { useToast } from '../../composables/toast';
@@ -55,11 +56,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div>
-    <header class="topbar">
-      <button class="topbar__back" @click="router.push('/admin')">‹</button>
-      <span class="topbar__title">商品管理</span>
-    </header>
+  <AdminLayout title="商品管理">
     <div class="asearch">
       <input class="input" v-model="keyword" placeholder="搜索商品标题" />
       <div class="apfilters">
@@ -96,7 +93,7 @@ onMounted(load);
         </div>
       </div>
     </div>
-  </div>
+  </AdminLayout>
 </template>
 
 <style scoped>
@@ -174,5 +171,18 @@ onMounted(load);
 .aprow__act.is-danger {
   border-color: #fecaca;
   color: var(--c-danger);
+}
+
+@media (min-width: 900px) {
+  .asearch {
+    border-bottom: none;
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+  }
+  .alist {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 12px 0;
+  }
 }
 </style>

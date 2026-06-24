@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import AdminLayout from '../../components/AdminLayout.vue';
 import { useToast } from '../../composables/toast';
 import { api } from '../../api/client';
 import { isOk, type ReportView } from '../../api/types';
 import { timeAgo } from '../../domain/format';
 
-const router = useRouter();
 const toast = useToast();
 const list = ref<ReportView[]>([]);
 const loading = ref(true);
@@ -39,12 +38,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div>
-    <header class="topbar">
-      <button class="topbar__back" @click="router.push('/admin')">‹</button>
-      <span class="topbar__title">举报管理</span>
-    </header>
-
+  <AdminLayout title="举报管理">
     <div v-if="loading" class="empty"><span class="spin" style="border-color:#ddd;border-top-color:var(--c-primary)"></span></div>
     <div v-else-if="list.length === 0" class="empty"><div class="empty__emoji">🚩</div><div class="empty__text">暂无举报</div></div>
     <div v-else class="rlist">
@@ -65,7 +59,7 @@ onMounted(load);
         </div>
       </div>
     </div>
-  </div>
+  </AdminLayout>
 </template>
 
 <style scoped>
@@ -125,5 +119,13 @@ onMounted(load);
   font-size: 13px;
   padding: 8px;
   white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .rlist {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 12px 0;
+  }
 }
 </style>

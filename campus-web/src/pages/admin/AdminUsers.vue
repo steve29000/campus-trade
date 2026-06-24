@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import AdminLayout from '../../components/AdminLayout.vue';
 import { useToast } from '../../composables/toast';
 import { api } from '../../api/client';
 import { isOk } from '../../api/types';
@@ -8,7 +8,6 @@ import type { User } from '../../domain/types';
 import { VERIFY_STATUS_LABEL } from '../../domain/types';
 import { campusName } from '../../domain/campus';
 
-const router = useRouter();
 const toast = useToast();
 const users = ref<User[]>([]);
 const keyword = ref('');
@@ -39,11 +38,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div>
-    <header class="topbar">
-      <button class="topbar__back" @click="router.push('/admin')">‹</button>
-      <span class="topbar__title">用户管理</span>
-    </header>
+  <AdminLayout title="用户管理">
     <div class="asearch">
       <input class="input" v-model="keyword" placeholder="搜索昵称 / 学号" />
     </div>
@@ -67,7 +62,7 @@ onMounted(load);
         </button>
       </div>
     </div>
-  </div>
+  </AdminLayout>
 </template>
 
 <style scoped>
@@ -118,5 +113,20 @@ onMounted(load);
 .arow__act.is-danger {
   border-color: #fecaca;
   color: var(--c-danger);
+}
+
+@media (min-width: 900px) {
+  .asearch,
+  .alist {
+    border-radius: var(--radius);
+  }
+  .asearch {
+    border-bottom: none;
+    margin-bottom: 14px;
+  }
+  .alist {
+    border: 1px solid var(--c-border);
+    overflow: hidden;
+  }
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import AdminLayout from '../../components/AdminLayout.vue';
 import { useToast } from '../../composables/toast';
 import { api } from '../../api/client';
 import { isOk, type VerificationView } from '../../api/types';
@@ -8,7 +8,6 @@ import { VERIFY_STATUS_LABEL } from '../../domain/types';
 import { campusName } from '../../domain/campus';
 import { timeAgo } from '../../domain/format';
 
-const router = useRouter();
 const toast = useToast();
 const list = ref<VerificationView[]>([]);
 const loading = ref(true);
@@ -36,12 +35,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div>
-    <header class="topbar">
-      <button class="topbar__back" @click="router.push('/admin')">‹</button>
-      <span class="topbar__title">认证审核</span>
-    </header>
-
+  <AdminLayout title="认证审核">
     <div v-if="loading" class="empty"><span class="spin" style="border-color:#ddd;border-top-color:var(--c-primary)"></span></div>
     <div v-else-if="list.length === 0" class="empty"><div class="empty__emoji">🎓</div><div class="empty__text">暂无认证申请</div></div>
     <div v-else class="vlist">
@@ -66,7 +60,7 @@ onMounted(load);
         </div>
       </div>
     </div>
-  </div>
+  </AdminLayout>
 </template>
 
 <style scoped>
@@ -130,5 +124,13 @@ onMounted(load);
 }
 .vcard__acts .btn {
   flex: 1;
+}
+
+@media (min-width: 900px) {
+  .vlist {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 12px 0;
+  }
 }
 </style>

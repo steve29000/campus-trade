@@ -70,4 +70,14 @@ async function loginAdmin() {
   text-align: center;
   margin-bottom: 0;
 }
+
+/* ---------- 桌面：居中卡片 ---------- */
+@media (min-width: 900px) {
+  .alogin__brand,
+  .alogin__card {
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
 </style>

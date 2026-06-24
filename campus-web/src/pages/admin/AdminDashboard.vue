@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '../../stores/auth';
+import AdminLayout from '../../components/AdminLayout.vue';
 import { api } from '../../api/client';
 import { isOk, type AdminStats } from '../../api/types';
 
 const router = useRouter();
-const auth = useAuthStore();
 const stats = ref<AdminStats | null>(null);
 
 const cards = [
@@ -26,11 +25,6 @@ const entries = [
   { label: '举报管理', icon: '🚩', to: '/admin/reports', desc: '处理违规举报' },
 ];
 
-function logout() {
-  auth.logout();
-  router.replace('/admin/login');
-}
-
 onMounted(async () => {
   const res = await api.adminStats();
   if (isOk(res)) stats.value = res.data;
@@ -38,15 +32,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="adash">
-    <header class="adash-top">
-      <div>
-        <div class="adash-top__title">数据概览</div>
-        <div class="adash-top__sub">校园集市管理后台</div>
-      </div>
-      <button class="adash-top__logout" @click="logout">退出</button>
-    </header>
-
+  <AdminLayout title="数据概览" back="/">
     <div class="adash-stats">
       <div v-for="c in cards" :key="c.key" class="adash-stat">
         <div class="adash-stat__icon">{{ c.icon }}</div>
@@ -65,51 +51,20 @@ onMounted(async () => {
         <span class="adash-entry__go">›</span>
       </button>
     </div>
-
-    <button class="btn btn--ghost btn--block" style="margin:18px 14px;width:auto" @click="router.push('/')">返回学生端</button>
-  </div>
+  </AdminLayout>
 </template>
 
 <style scoped>
-.adash {
-  min-height: 100%;
-  background: var(--c-bg);
-}
-.adash-top {
-  display: flex;
-  align-items: center;
-  padding: 20px 16px;
-  background: linear-gradient(135deg, #1f2937, #334155);
-  color: #fff;
-}
-.adash-top__title {
-  font-size: 20px;
-  font-weight: 700;
-}
-.adash-top__sub {
-  font-size: 12px;
-  color: #cbd5e1;
-  margin-top: 2px;
-}
-.adash-top__logout {
-  margin-left: auto;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: transparent;
-  color: #fff;
-  font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 999px;
-}
 .adash-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   padding: 14px;
 }
 .adash-stat {
   background: var(--c-surface);
   border-radius: var(--radius);
-  padding: 14px 8px;
+  padding: 16px 8px;
   text-align: center;
   box-shadow: var(--shadow-card);
 }
@@ -117,7 +72,7 @@ onMounted(async () => {
   font-size: 20px;
 }
 .adash-stat__num {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--c-primary-dark);
   margin: 4px 0 2px;
@@ -128,8 +83,8 @@ onMounted(async () => {
 }
 .adash-entries {
   padding: 0 14px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 .adash-entry {
@@ -161,5 +116,12 @@ onMounted(async () => {
 .adash-entry__go {
   font-size: 20px;
   color: var(--c-text-faint);
+}
+
+@media (min-width: 900px) {
+  .adash-entries {
+    grid-template-columns: 1fr 1fr;
+    padding: 14px;
+  }
 }
 </style>
