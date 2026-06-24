@@ -60,10 +60,21 @@ CampusTrade AI 是一个基于 Spring Cloud Alibaba 的校园二手交易平台�
 
 - 技术栈：Vue 3 + Vite + TypeScript + Pinia + Vue Router。
 - 已跑通四个闭环：浏览（登录/认证/首页/搜索/详情/收藏）、发布（3 步 + AI 估价/文案 + 状态管理）、沟通（聊天 + 约交易 + 标记成交）、后台（概览/用户/商品/认证/举报）。
-- 当前用内存 Mock 数据，返回与 `campus-common` 一致的 `ApiResponse` 信封、路由对齐 `campus-gateway`，后端就绪后可平滑对接。
+- 默认用内存 Mock 数据，返回与 `campus-common` 一致的 `ApiResponse` 信封；可独立运行。
+- 支持 mock ↔ 真后端切换：设 `VITE_API_BASE` 后，登录/注册/商品浏览/发布走真实网关，其余域仍 mock（适配层见 `campus-web/src/api/`）。
 
 ```bash
-cd campus-web && npm install && npm run dev   # http://localhost:5180
+cd campus-web && npm install && npm run dev   # http://localhost:5180（默认 mock）
+```
+
+### 前后端联调
+
+一键起中间件（MySQL/Redis/Nacos）+ 初始化 SQL，再起后端服务、前端指向网关，详见 **[`deploy/README.md`](deploy/README.md)**：
+
+```bash
+docker compose -f deploy/docker-compose.yml up -d        # 中间件
+# 后端分支起各服务 + gateway(:8080)，再：
+cd campus-web && cp .env.example .env.local && npm run dev # 取消注释 VITE_API_BASE
 ```
 
 ## 第一阶段目标
