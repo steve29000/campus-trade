@@ -11,13 +11,15 @@ import { useChatStore } from './stores/chat';
 async function bootstrap() {
   const app = createApp(App);
   app.use(createPinia());
-  app.use(router);
 
-  // 启动时恢复登录态，预加载分类与收藏，再挂载，避免首屏闪烁。
+  // 必须先恢复登录态，再安装 router。
+  // 否则 app.use(router) 会立即触发首次路由解析与守卫，此时 restore 尚未完成，
+  // 受保护路由（/publish、/my-listings）会误判未登录而跳到 /login。
   const auth = useAuthStore();
   await auth.restore();
   await Promise.all([useCatalogStore().load(), useFavoriteStore().load(), useChatStore().load()]);
 
+  app.use(router);
   app.mount('#app');
 }
 
