@@ -37,12 +37,14 @@ mvn -pl campus-gateway spring-boot:run   # 网关 :8080，最后起
 
 ```bash
 cd campus-web
-cp .env.example .env.local      # 取消注释 VITE_API_BASE=http://localhost:8080
+cp .env.example .env.local      # 取消注释 VITE_API_BASE=/api（推荐，走内置代理）
 npm install
 npm run dev
 ```
 
 设了 `VITE_API_BASE` 后，**登录 / 注册 / 商品浏览 / 发布 / 改状态** 走真实后端；收藏 / 分类 / 认证 / 聊天 / AI / 后台仍走 mock。
+
+> 推荐用 `/api`：`vite.config.ts` 已内置把 `/api/**` 代理到 `:8080` 的网关，浏览器同源、不受 CORS 影响。直连 `http://localhost:8080` 也行，但需要网关放行前端 origin。
 
 ### 验证
 
@@ -52,6 +54,6 @@ npm run dev
 
 ## 注意
 
-- **CORS**：浏览器直连网关需网关放行前端 origin（`http://localhost:5180`）。若网关未配 CORS，可改用 Vite 代理（在 `campus-web/vite.config.ts` 加 `server.proxy` 把 `/user`、`/product` 等转发到 `:8080`）。
+- **CORS**：网关当前未配 CORS，所以默认走 `VITE_API_BASE=/api`，由 `campus-web/vite.config.ts` 内置的 dev 代理把 `/api/**` 转发到 `:8080`（同源，无需 CORS）。只有直连 `http://localhost:8080` 时才需要网关放行前端 origin。
 - **鉴权范围**：后端除登录/注册外全部需要 token，因此 HTTP 模式下需先登录才能浏览商品（mock 模式可游客浏览）。
 - **契约降级**：后端 `ProductResponse` 较精简，前端列表里成色/校区/图片/卖家昵称为占位默认值（详见 `campus-web/src/api/adapters.ts`）。
