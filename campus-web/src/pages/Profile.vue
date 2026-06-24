@@ -79,6 +79,10 @@ function logout() {
         </button>
       </div>
 
+      <button v-if="auth.isAdmin" class="me-admin" @click="router.push('/admin')">
+        🛡️ 进入管理后台 <span class="me-admin__go">›</span>
+      </button>
+
       <button class="btn btn--ghost btn--block" style="margin:18px 14px;width:auto" @click="logout">退出登录</button>
     </template>
   </div>
@@ -169,5 +173,22 @@ function logout() {
 }
 .me-cell__icon {
   font-size: 24px;
+}
+.me-admin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px;
+  width: calc(100% - 24px);
+  background: #1f2937;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.me-admin__go {
+  margin-left: auto;
 }
 </style>

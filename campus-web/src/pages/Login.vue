@@ -107,7 +107,7 @@ async function doRegister() {
         🦊 已认证学生（小南 · 南校区）
       </button>
       <button class="btn btn--ghost btn--block" @click="quickDemo('unverified')">
-        🐤 未认证新生（体验认证守卫）
+        🐤 新生账号（未通过认证 · 体验守卫）
       </button>
     </div>
   </div>

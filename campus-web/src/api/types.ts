@@ -6,6 +6,8 @@ import type {
   CampusId,
   VerifyStatus,
   ConditionLevel,
+  Verification,
+  Report,
 } from '../domain/types';
 
 export interface ApiResponse<T> {
@@ -68,4 +70,24 @@ export interface ProductQuery {
   condition?: ConditionLevel;
   sort?: ProductSort;
   viewerCampus?: CampusId; // 用于"距离最近"排序
+}
+
+// ---------- 后台视图 ----------
+export interface AdminStats {
+  userCount: number;
+  verifiedCount: number;
+  productCount: number;
+  todayNewProducts: number;
+  pendingVerifications: number;
+  pendingReports: number;
+  completedDeals: number;
+}
+
+export interface VerificationView extends Verification {
+  user: UserBrief;
+}
+
+export interface ReportView extends Report {
+  reporter: UserBrief;
+  targetTitle: string; // 被举报商品标题或用户昵称
 }

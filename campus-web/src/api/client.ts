@@ -15,6 +15,8 @@ import type {
   Report,
   ReportTargetType,
   ReportReason,
+  ReportStatus,
+  UserStatus,
 } from '../domain/types';
 import { transition, type ProductAction } from '../domain/productStatus';
 import { estimatePrice, generateDescription, type PriceEstimate } from '../domain/ai';
@@ -29,6 +31,9 @@ import {
   type ProductQuery,
   type SessionView,
   type ChatThread,
+  type AdminStats,
+  type VerificationView,
+  type ReportView,
 } from './types';
 
 const delay = (ms = 140) => new Promise<void>((r) => setTimeout(r, ms));
@@ -440,6 +445,112 @@ export const api = {
   async generateDescription(input: Parameters<typeof generateDescription>[0]): Promise<ApiResponse<string>> {
     await delay(500);
     return ok(generateDescription(input));
+  },
+
+  // ======================= 后台管理 =======================
+  async adminStats(): Promise<ApiResponse<AdminStats>> {
+    await delay();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const t0 = startOfToday.getTime();
+    const stats: AdminStats = {
+      userCount: db.users.filter((u) => u.role === 'STUDENT').length,
+      verifiedCount: db.users.filter((u) => u.verifyStatus === 'VERIFIED' && u.role === 'STUDENT').length,
+      productCount: db.products.length,
+      todayNewProducts: db.products.filter((p) => p.createdAt >= t0).length,
+      pendingVerifications: db.verifications.filter((v) => v.status === 'PENDING').length,
+      pendingReports: db.reports.filter((r) => r.status === 'PENDING').length,
+      completedDeals: db.products.filter((p) => p.status === 'SOLD').length,
+    };
+    return ok(stats);
+  },
+
+  async adminListUsers(keyword?: string): Promise<ApiResponse<User[]>> {
+    await delay();
+    let users = db.users.filter((u) => u.role === 'STUDENT');
+    if (keyword) {
+      const kw = keyword.trim().toLowerCase();
+      users = users.filter((u) => (u.nickname + (u.studentNo ?? '')).toLowerCase().includes(kw));
+    }
+    return ok([...users].sort((a, b) => b.createdAt - a.createdAt));
+  },
+
+  async adminSetUserStatus(userId: string, status: UserStatus): Promise<ApiResponse<User>> {
+    await delay();
+    const u = userById(userId);
+    if (!u) return fail(404, '用户不存在');
+    u.status = status;
+    db.persist();
+    return ok(u);
+  },
+
+  async adminListProducts(keyword?: string, status?: Product['status']): Promise<ApiResponse<ProductCard[]>> {
+    await delay();
+    let items = [...db.products];
+    if (status) items = items.filter((p) => p.status === status);
+    if (keyword) {
+      const kw = keyword.trim().toLowerCase();
+      items = items.filter((p) => p.title.toLowerCase().includes(kw));
+    }
+    items.sort((a, b) => b.createdAt - a.createdAt);
+    return ok(items.map(toCard));
+  },
+
+  async adminDelistProduct(id: string): Promise<ApiResponse<ProductCard>> {
+    await delay();
+    const p = db.products.find((x) => x.id === id);
+    if (!p) return fail(404, '商品不存在');
+    if (p.status !== 'SOLD') p.status = 'DELISTED';
+    p.updatedAt = Date.now();
+    db.persist();
+    return ok(toCard(p));
+  },
+
+  async adminDeleteProduct(id: string): Promise<ApiResponse<{ id: string }>> {
+    await delay();
+    const i = db.products.findIndex((x) => x.id === id);
+    if (i < 0) return fail(404, '商品不存在');
+    db.products.splice(i, 1);
+    db.persist();
+    return ok({ id });
+  },
+
+  async adminListVerifications(): Promise<ApiResponse<VerificationView[]>> {
+    await delay();
+    const views = [...db.verifications]
+      .sort((a, b) => Number(a.status !== 'PENDING') - Number(b.status !== 'PENDING') || b.createdAt - a.createdAt)
+      .map((v) => ({ ...v, user: brief(userById(v.userId)) }));
+    return ok(views);
+  },
+
+  async adminListReports(): Promise<ApiResponse<ReportView[]>> {
+    await delay();
+    const views = [...db.reports]
+      .sort((a, b) => Number(a.status !== 'PENDING') - Number(b.status !== 'PENDING') || b.createdAt - a.createdAt)
+      .map((r) => {
+        let targetTitle = '未知对象';
+        if (r.targetType === 'PRODUCT') targetTitle = db.products.find((p) => p.id === r.targetId)?.title ?? '已删除商品';
+        else targetTitle = userById(r.targetId)?.nickname ?? '已注销用户';
+        return { ...r, reporter: brief(userById(r.reporterId)), targetTitle };
+      });
+    return ok(views);
+  },
+
+  async adminHandleReport(id: string, resolution: ReportStatus, delistTarget = false): Promise<ApiResponse<Report>> {
+    await delay();
+    const r = db.reports.find((x) => x.id === id);
+    if (!r) return fail(404, '举报不存在');
+    r.status = resolution;
+    r.handledAt = Date.now();
+    if (resolution === 'RESOLVED' && delistTarget && r.targetType === 'PRODUCT') {
+      const p = db.products.find((x) => x.id === r.targetId);
+      if (p && p.status !== 'SOLD') {
+        p.status = 'DELISTED';
+        p.updatedAt = Date.now();
+      }
+    }
+    db.persist();
+    return ok(r);
   },
 
   // ---------- 私有 ----------

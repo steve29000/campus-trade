@@ -26,6 +26,14 @@ const routes: RouteRecordRaw[] = [
   { path: '/my-listings', name: 'my-listings', component: () => import('../pages/MyListings.vue'), meta: { requiresAuth: true } },
   { path: '/chat/:id', name: 'chat', component: () => import('../pages/Chat.vue'), meta: { requiresAuth: true } },
 
+  // 后台管理
+  { path: '/admin/login', name: 'admin-login', component: () => import('../pages/admin/AdminLogin.vue') },
+  { path: '/admin', name: 'admin', component: () => import('../pages/admin/AdminDashboard.vue'), meta: { requiresAdmin: true } },
+  { path: '/admin/users', name: 'admin-users', component: () => import('../pages/admin/AdminUsers.vue'), meta: { requiresAdmin: true } },
+  { path: '/admin/products', name: 'admin-products', component: () => import('../pages/admin/AdminProducts.vue'), meta: { requiresAdmin: true } },
+  { path: '/admin/verifications', name: 'admin-verifications', component: () => import('../pages/admin/AdminVerifications.vue'), meta: { requiresAdmin: true } },
+  { path: '/admin/reports', name: 'admin-reports', component: () => import('../pages/admin/AdminReports.vue'), meta: { requiresAdmin: true } },
+
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ];
 
@@ -39,6 +47,10 @@ export const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
+  if (to.meta.requiresAdmin) {
+    if (!auth.isAdmin) return { name: 'admin-login', query: { redirect: to.fullPath } };
+    return true;
+  }
   if (to.meta.requiresAuth && !auth.isAuthed) {
     return { name: 'login', query: { redirect: to.fullPath } };
   }

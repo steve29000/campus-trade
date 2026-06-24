@@ -96,7 +96,8 @@ export function buildSeed(now: number): SeedData {
       avatar: '🐤',
       school: '示范大学',
       campus: 'NORTH',
-      verifyStatus: 'UNVERIFIED',
+      studentNo: '2024NORTH500',
+      verifyStatus: 'PENDING',
       role: 'STUDENT',
       status: 'ACTIVE',
       rating: 5.0,
@@ -253,7 +254,7 @@ export function buildSeed(now: number): SeedData {
       school: '示范大学',
       campus: 'NORTH',
       studentNo: '2024NORTH500',
-      status: 'UNVERIFIED',
+      status: 'PENDING',
       createdAt: now - 2 * DAY,
     },
   ];
