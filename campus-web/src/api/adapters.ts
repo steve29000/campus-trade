@@ -45,6 +45,23 @@ export function actionToBackendStatus(action: string): BackendProductStatus {
   }
 }
 
+// 后端 category 是分类名字符串；映射到本地 categoryId 以显示正确图标。
+// 名字与 data/seed.ts 的分类保持一致；无匹配时保留原值（图标回退 📦）。
+const CATEGORY_NAME_TO_ID: Record<string, string> = {
+  数码: 'c1',
+  图书教材: 'c2',
+  生活用品: 'c3',
+  运动户外: 'c4',
+  服饰鞋包: 'c5',
+  美妆个护: 'c6',
+  票券卡券: 'c7',
+  其他闲置: 'c8',
+};
+
+function toCategoryId(category: string): string {
+  return CATEGORY_NAME_TO_ID[category] ?? category;
+}
+
 // ---------- 用户 ----------
 // 后端 UserProfileResponse 只有 id/username/nickname，其余给安全默认值：
 // verifyStatus 默认 VERIFIED 以放行发布/聊天（后端无认证概念）。
@@ -84,7 +101,7 @@ export function adaptProduct(p: BackendProduct): ProductCard {
     sellerId: String(p.sellerId),
     title: p.title,
     description: p.description,
-    categoryId: p.category, // 后端是分类名字符串；本地无对应 id 时图标回退 📦
+    categoryId: toCategoryId(p.category),
     price: Number(p.price),
     originalPrice: undefined,
     conditionLevel: 'GOOD' as ConditionLevel,
