@@ -128,4 +128,15 @@ onMounted(() => chat.load());
   justify-content: center;
   border-radius: var(--radius);
 }
+
+/* ---------- 桌面：居中限宽 ---------- */
+@media (min-width: 900px) {
+  .msg-list {
+    max-width: 720px;
+    margin: 16px auto;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+}
 </style>

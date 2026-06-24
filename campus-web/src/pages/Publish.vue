@@ -416,4 +416,15 @@ async function publish() {
   gap: 12px;
   padding: 14px;
 }
+
+/* ---------- 桌面：居中限宽 ---------- */
+@media (min-width: 900px) {
+  .steps,
+  .pub,
+  .pub-bar {
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
 </style>

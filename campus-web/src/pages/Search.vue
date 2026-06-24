@@ -52,11 +52,19 @@ watch([keyword, categoryId, sort, condition, minPrice, maxPrice, () => auth.brow
   clearTimeout(t);
   t = setTimeout(load, 200);
 });
+// 桌面端用顶栏全局搜索（跳转 /search?kw=...），同步到本页关键词
+watch(
+  () => route.query.kw,
+  (v) => {
+    keyword.value = (v as string) || '';
+  },
+);
 onMounted(load);
 </script>
 
 <template>
-  <div>
+  <div class="srch">
+    <!-- 搜索栏（桌面端隐藏，改用顶栏全局搜索） -->
     <header class="srch-top">
       <div class="srch-bar">
         <span>🔍</span>
@@ -66,66 +74,70 @@ onMounted(load);
       <button class="srch-filter" :class="{ 'is-on': showFilter }" @click="showFilter = !showFilter">筛选</button>
     </header>
 
-    <!-- 分类 chips -->
-    <div class="srch-cats">
-      <button class="srch-chip" :class="{ 'is-active': categoryId === '' }" @click="categoryId = ''">全部</button>
-      <button
-        v-for="c in catalog.categories"
-        :key="c.id"
-        class="srch-chip"
-        :class="{ 'is-active': categoryId === c.id }"
-        @click="categoryId = c.id"
-      >
-        {{ c.icon }} {{ c.name }}
-      </button>
-    </div>
-
-    <!-- 排序 -->
-    <div class="srch-sorts">
-      <button
-        v-for="s in sorts"
-        :key="s.key"
-        class="srch-sort"
-        :class="{ 'is-active': sort === s.key }"
-        @click="sort = s.key"
-      >
-        {{ s.label }}
-      </button>
-    </div>
-
-    <!-- 高级筛选 -->
-    <div v-if="showFilter" class="srch-adv">
-      <div class="srch-adv__row">
-        <span class="srch-adv__label">价格</span>
-        <input class="srch-adv__price" type="number" v-model.number="minPrice" placeholder="最低" />
-        <span class="faint">—</span>
-        <input class="srch-adv__price" type="number" v-model.number="maxPrice" placeholder="最高" />
-      </div>
-      <div class="srch-adv__row">
-        <span class="srch-adv__label">成色</span>
-        <div class="srch-adv__conds">
-          <button class="srch-chip" :class="{ 'is-active': condition === '' }" @click="condition = ''">不限</button>
+    <div class="srch-layout">
+      <!-- 筛选（桌面左侧栏 / 手机堆叠） -->
+      <aside class="srch-side">
+        <div class="srch-side__title">分类</div>
+        <div class="srch-cats">
+          <button class="srch-chip" :class="{ 'is-active': categoryId === '' }" @click="categoryId = ''">全部</button>
           <button
-            v-for="c in conditions"
-            :key="c"
+            v-for="c in catalog.categories"
+            :key="c.id"
             class="srch-chip"
-            :class="{ 'is-active': condition === c }"
-            @click="condition = c"
+            :class="{ 'is-active': categoryId === c.id }"
+            @click="categoryId = c.id"
           >
-            {{ CONDITION_LABEL[c] }}
+            {{ c.icon }} {{ c.name }}
           </button>
         </div>
-      </div>
-    </div>
 
-    <!-- 结果 -->
-    <div v-if="loading" class="empty"><span class="spin" style="border-color:#ddd;border-top-color:var(--c-primary)"></span></div>
-    <div v-else-if="results.length === 0" class="empty">
-      <div class="empty__emoji">🔍</div>
-      <div class="empty__text">没有找到相关闲置，换个关键词试试</div>
-    </div>
-    <div v-else class="pgrid">
-      <ProductCard v-for="p in results" :key="p.id" :card="p" />
+        <div class="srch-side__title">排序</div>
+        <div class="srch-sorts">
+          <button
+            v-for="s in sorts"
+            :key="s.key"
+            class="srch-sort"
+            :class="{ 'is-active': sort === s.key }"
+            @click="sort = s.key"
+          >
+            {{ s.label }}
+          </button>
+        </div>
+
+        <div class="srch-adv" :class="{ 'is-collapsed': !showFilter }">
+          <div class="srch-side__title">价格</div>
+          <div class="srch-adv__row">
+            <input class="srch-adv__price" type="number" v-model.number="minPrice" placeholder="最低" />
+            <span class="faint">—</span>
+            <input class="srch-adv__price" type="number" v-model.number="maxPrice" placeholder="最高" />
+          </div>
+          <div class="srch-side__title">成色</div>
+          <div class="srch-adv__conds">
+            <button class="srch-chip" :class="{ 'is-active': condition === '' }" @click="condition = ''">不限</button>
+            <button
+              v-for="c in conditions"
+              :key="c"
+              class="srch-chip"
+              :class="{ 'is-active': condition === c }"
+              @click="condition = c"
+            >
+              {{ CONDITION_LABEL[c] }}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 结果 -->
+      <section class="srch-results">
+        <div v-if="loading" class="empty"><span class="spin" style="border-color:#ddd;border-top-color:var(--c-primary)"></span></div>
+        <div v-else-if="results.length === 0" class="empty">
+          <div class="empty__emoji">🔍</div>
+          <div class="empty__text">没有找到相关闲置，换个关键词试试</div>
+        </div>
+        <div v-else class="pgrid">
+          <ProductCard v-for="p in results" :key="p.id" :card="p" />
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -179,6 +191,9 @@ onMounted(load);
   color: var(--c-primary);
   font-weight: 600;
 }
+.srch-side__title {
+  display: none;
+}
 .srch-cats {
   display: flex;
   gap: 8px;
@@ -224,16 +239,14 @@ onMounted(load);
   padding: 4px 14px 14px;
   border-bottom: 1px solid var(--c-border);
 }
+.srch-adv.is-collapsed {
+  display: none;
+}
 .srch-adv__row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 10px;
-}
-.srch-adv__label {
-  font-size: 13px;
-  color: var(--c-text-soft);
-  width: 36px;
 }
 .srch-adv__price {
   width: 80px;
@@ -246,5 +259,75 @@ onMounted(load);
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* ---------- 桌面：左筛选栏 + 右结果 ---------- */
+@media (min-width: 900px) {
+  .srch-top {
+    display: none;
+  }
+  .srch-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .srch-side {
+    width: 230px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 82px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .srch-side__title {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--c-text-faint);
+    margin: 14px 0 8px;
+  }
+  .srch-side__title:first-child {
+    margin-top: 0;
+  }
+  .srch-cats,
+  .srch-sorts {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    overflow: visible;
+    padding: 0;
+    background: none;
+    border: none;
+  }
+  .srch-cats .srch-chip {
+    text-align: left;
+  }
+  .srch-sort {
+    text-align: left;
+    padding: 4px 0;
+  }
+  .srch-adv {
+    padding: 0;
+    background: none;
+    border: none;
+  }
+  .srch-adv.is-collapsed {
+    display: block; /* 桌面始终展开 */
+  }
+  .srch-results {
+    flex: 1;
+    min-width: 0;
+  }
+  .srch-results .pgrid {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
 }
 </style>

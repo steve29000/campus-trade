@@ -278,6 +278,73 @@ select {
   color: var(--c-text-soft);
 }
 
+/* ---------- 居中容器（桌面） ---------- */
+.container {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ========== 桌面端响应式（>=900px）。手机端规则全部保持不变 ========== */
+@media (min-width: 900px) {
+  html,
+  body {
+    background: var(--c-bg);
+  }
+
+  /* 解除"手机框 + 内层滚动"，改为整页正常文档流（纯 CSS，不依赖 JS） */
+  .app-frame {
+    max-width: none;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    box-shadow: none;
+    background: var(--c-bg);
+  }
+  .screen {
+    height: auto;
+  }
+  .screen__body {
+    overflow: visible;
+  }
+
+  /* 商品网格：自适应多列，居中限宽 */
+  .pgrid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  /* 区块标题与网格对齐 */
+  .section,
+  .section__head {
+    max-width: 1180px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* 顶部由 DesktopHeader 接管：隐藏首页吸顶栏；页面级返回栏改为非吸顶并居中 */
+  .home-top {
+    display: none;
+  }
+  .topbar {
+    position: static;
+    max-width: 1180px;
+    margin: 0 auto;
+    background: transparent;
+    border-bottom: none;
+    padding-top: 14px;
+  }
+
+  /* 空状态多留点上边距，避免贴着顶栏 */
+  .empty {
+    padding-top: 80px;
+  }
+}
+
 /* ---------- 杂项 ---------- */
 .muted {
   color: var(--c-text-soft);

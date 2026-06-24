@@ -75,74 +75,76 @@ async function report(reason: ReportReason) {
     </div>
 
     <div v-else-if="detail" class="pd">
-      <!-- 图片轮播 -->
-      <div class="pd-gallery">
-        <div v-for="(im, i) in detail.images" :key="i" class="pd-gallery__item">
-          <ProductThumb :seed="detail.id" :index="i" :emoji="catalog.categoryIcon(detail.categoryId)" :src="im.url || undefined" />
-        </div>
-      </div>
-
-      <!-- 价格 / 标题 -->
-      <div class="pd-head card">
-        <div class="pd-price">
-          <span class="price" style="font-size:26px"><span class="price__symbol">¥</span>{{ detail.price }}</span>
-          <span v-if="detail.originalPrice" class="price__origin">原价 ¥{{ detail.originalPrice }}</span>
-          <span v-if="detail.negotiable" class="tag" style="margin-left:8px">可议价</span>
-          <span v-if="detail.status !== 'ON_SALE'" class="tag" style="margin-left:auto">{{ PRODUCT_STATUS_LABEL[detail.status] }}</span>
-        </div>
-        <h1 class="pd-title">{{ detail.title }}</h1>
-        <div class="pd-meta faint">
-          <span class="tag tag--condition">{{ CONDITION_LABEL[detail.conditionLevel] }}</span>
-          <span>{{ timeAgo(detail.createdAt) }}发布</span>
-          <span>· {{ detail.viewCount }} 浏览</span>
-          <span>· {{ detail.favoriteCount }} 想要</span>
-        </div>
-      </div>
-
-      <!-- 描述 -->
-      <div class="pd-sec card">
-        <div class="pd-sec__title">商品描述</div>
-        <p class="pd-desc">{{ detail.description }}</p>
-      </div>
-
-      <!-- 校园交易地点（特色） -->
-      <div class="pd-sec card">
-        <div class="pd-sec__title">📍 校园交易</div>
-        <div class="pd-place__main">
-          {{ campusName(detail.campus) }} · 距你约 {{ distance }}
-        </div>
-        <div class="pd-place__sug faint">卖家建议：{{ detail.locationDesc }}</div>
-        <div class="pd-place__chips">
-          <span class="tag" v-for="pl in tradePlacesOf(detail.campus)" :key="pl">{{ pl }}</span>
-        </div>
-        <div class="pd-place__tip">平台建议在以上人多、明亮的地点当面交易，安全放心。</div>
-      </div>
-
-      <!-- 卖家 -->
-      <div class="pd-seller card">
-        <span class="pd-seller__avatar">{{ detail.seller.avatar }}</span>
-        <div class="pd-seller__info">
-          <div class="pd-seller__name">
-            {{ detail.seller.nickname }}
-            <span v-if="detail.seller.verifyStatus === 'VERIFIED'" class="tag tag--verified">✓ 校园认证</span>
+      <div class="pd-layout">
+        <!-- 图片轮播 -->
+        <div class="pd-gallery">
+          <div v-for="(im, i) in detail.images" :key="i" class="pd-gallery__item">
+            <ProductThumb :seed="detail.id" :index="i" :emoji="catalog.categoryIcon(detail.categoryId)" :src="im.url || undefined" />
           </div>
-          <div class="faint" style="font-size:12px">信用 {{ detail.seller.rating }} · {{ campusName(detail.seller.campus) }}</div>
         </div>
-        <button class="pd-report" @click="auth.isAuthed ? (showReport = true) : router.push({ name: 'login', query: { redirect: route.fullPath } })">举报</button>
-      </div>
 
-      <!-- 底部操作栏 -->
-      <div class="pd-bar">
-        <button class="pd-bar__icon" @click="toggleFav">
-          <span>{{ faved ? '❤️' : '🤍' }}</span><span>收藏</span>
-        </button>
-        <button
-          class="btn btn--primary pd-bar__chat"
-          :disabled="detail.status !== 'ON_SALE' && !isMine"
-          @click="contact"
-        >
-          {{ isMine ? '这是我发布的' : detail.status === 'ON_SALE' ? '聊一聊' : '已不可交易' }}
-        </button>
+        <div class="pd-main">
+          <!-- 价格 / 标题 -->
+          <div class="pd-head card">
+            <div class="pd-price">
+              <span class="price" style="font-size:26px"><span class="price__symbol">¥</span>{{ detail.price }}</span>
+              <span v-if="detail.originalPrice" class="price__origin">原价 ¥{{ detail.originalPrice }}</span>
+              <span v-if="detail.negotiable" class="tag" style="margin-left:8px">可议价</span>
+              <span v-if="detail.status !== 'ON_SALE'" class="tag" style="margin-left:auto">{{ PRODUCT_STATUS_LABEL[detail.status] }}</span>
+            </div>
+            <h1 class="pd-title">{{ detail.title }}</h1>
+            <div class="pd-meta faint">
+              <span class="tag tag--condition">{{ CONDITION_LABEL[detail.conditionLevel] }}</span>
+              <span>{{ timeAgo(detail.createdAt) }}发布</span>
+              <span>· {{ detail.viewCount }} 浏览</span>
+              <span>· {{ detail.favoriteCount }} 想要</span>
+            </div>
+          </div>
+
+          <!-- 描述 -->
+          <div class="pd-sec card">
+            <div class="pd-sec__title">商品描述</div>
+            <p class="pd-desc">{{ detail.description }}</p>
+          </div>
+
+          <!-- 校园交易地点（特色） -->
+          <div class="pd-sec card">
+            <div class="pd-sec__title">📍 校园交易</div>
+            <div class="pd-place__main">{{ campusName(detail.campus) }} · 距你约 {{ distance }}</div>
+            <div class="pd-place__sug faint">卖家建议：{{ detail.locationDesc }}</div>
+            <div class="pd-place__chips">
+              <span class="tag" v-for="pl in tradePlacesOf(detail.campus)" :key="pl">{{ pl }}</span>
+            </div>
+            <div class="pd-place__tip">平台建议在以上人多、明亮的地点当面交易，安全放心。</div>
+          </div>
+
+          <!-- 卖家 -->
+          <div class="pd-seller card">
+            <span class="pd-seller__avatar">{{ detail.seller.avatar }}</span>
+            <div class="pd-seller__info">
+              <div class="pd-seller__name">
+                {{ detail.seller.nickname }}
+                <span v-if="detail.seller.verifyStatus === 'VERIFIED'" class="tag tag--verified">✓ 校园认证</span>
+              </div>
+              <div class="faint" style="font-size:12px">信用 {{ detail.seller.rating }} · {{ campusName(detail.seller.campus) }}</div>
+            </div>
+            <button class="pd-report" @click="auth.isAuthed ? (showReport = true) : router.push({ name: 'login', query: { redirect: route.fullPath } })">举报</button>
+          </div>
+
+          <!-- 操作栏 -->
+          <div class="pd-bar">
+            <button class="pd-bar__icon" @click="toggleFav">
+              <span>{{ faved ? '❤️' : '🤍' }}</span><span>收藏</span>
+            </button>
+            <button
+              class="btn btn--primary pd-bar__chat"
+              :disabled="detail.status !== 'ON_SALE' && !isMine"
+              @click="contact"
+            >
+              {{ isMine ? '这是我发布的' : detail.status === 'ON_SALE' ? '聊一聊' : '已不可交易' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -270,6 +272,7 @@ async function report(reason: ReportReason) {
   padding: 8px 14px;
   background: var(--c-surface);
   border-top: 1px solid var(--c-border);
+  z-index: 20;
 }
 .pd-bar__icon {
   display: flex;
@@ -325,5 +328,52 @@ async function report(reason: ReportReason) {
   font-size: 15px;
   font-weight: 600;
   margin-top: 6px;
+}
+
+/* ---------- 桌面：左图右信息两栏 ---------- */
+@media (min-width: 900px) {
+  .pd {
+    padding-bottom: 0;
+  }
+  .pd-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .pd-gallery {
+    flex: 0 0 460px;
+    width: 460px;
+    position: sticky;
+    top: 82px;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    box-shadow: var(--shadow-card);
+  }
+  .pd-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .pd-main .pd-head,
+  .pd-main .pd-sec,
+  .pd-main .pd-seller {
+    margin: 0 0 14px;
+  }
+  .pd-bar {
+    position: static;
+    transform: none;
+    width: auto;
+    max-width: none;
+    border-top: none;
+    background: none;
+    padding: 4px 0 0;
+  }
+  .pd-bar__chat {
+    padding-top: 13px;
+    padding-bottom: 13px;
+    font-size: 16px;
+  }
 }
 </style>

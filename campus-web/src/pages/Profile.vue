@@ -191,4 +191,12 @@ function logout() {
 .me-admin__go {
   margin-left: auto;
 }
+
+/* ---------- 桌面：居中限宽 ---------- */
+@media (min-width: 900px) {
+  .me {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+}
 </style>

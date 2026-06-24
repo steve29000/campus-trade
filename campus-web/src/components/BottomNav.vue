@@ -89,4 +89,10 @@ const tabs = [
   line-height: 16px;
   text-align: center;
 }
+/* 桌面端用顶栏导航，隐藏底部 Tab */
+@media (min-width: 900px) {
+  .bottomnav {
+    display: none;
+  }
+}
 </style>

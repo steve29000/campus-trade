@@ -147,4 +147,13 @@ function done() {
   font-size: 13px;
   text-align: center;
 }
+
+/* ---------- 桌面：居中限宽 ---------- */
+@media (min-width: 900px) {
+  .vf-form,
+  .vf-state {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+}
 </style>

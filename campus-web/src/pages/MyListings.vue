@@ -228,4 +228,14 @@ onMounted(load);
   border-color: #fecaca;
   color: var(--c-danger);
 }
+
+/* ---------- 桌面：居中限宽 ---------- */
+@media (min-width: 900px) {
+  .ml-filters,
+  .ml-list {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
 </style>

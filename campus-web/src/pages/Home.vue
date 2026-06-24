@@ -247,4 +247,40 @@ function goCategory(id: string) {
   font-size: 11px;
   margin: 3px 0 4px;
 }
+
+/* ---------- 桌面：模块居中铺开 ---------- */
+@media (min-width: 900px) {
+  .home-cats {
+    max-width: 1180px;
+    margin: 20px auto 0;
+    grid-template-columns: repeat(8, 1fr);
+    border-radius: var(--radius);
+    padding: 18px 12px;
+    box-shadow: var(--shadow-card);
+  }
+  .home-cat {
+    font-size: 13px;
+  }
+  .home-cat__icon {
+    font-size: 30px;
+  }
+  .home-ai {
+    max-width: 1180px;
+    margin: 18px auto;
+    padding: 18px 22px;
+  }
+  .home-ai__emoji {
+    font-size: 34px;
+  }
+  .home-ai__text {
+    font-size: 13px;
+  }
+  .home-ai__text strong {
+    font-size: 16px;
+  }
+  .ai-pick {
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+}
 </style>

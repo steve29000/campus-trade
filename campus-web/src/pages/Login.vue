@@ -172,4 +172,12 @@ async function doRegister() {
   color: var(--c-text-faint);
   position: relative;
 }
+
+/* ---------- 桌面：居中限宽 ---------- */
+@media (min-width: 900px) {
+  .login {
+    max-width: 460px;
+    margin: 0 auto;
+  }
+}
 </style>

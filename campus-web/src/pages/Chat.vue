@@ -427,4 +427,15 @@ onMounted(load);
   flex-shrink: 0;
   padding: 9px 16px;
 }
+
+/* ---------- 桌面：居中聊天面板，整屏高度内滚 ---------- */
+@media (min-width: 900px) {
+  .chat {
+    max-width: 820px;
+    margin: 0 auto;
+    height: calc(100vh - 63px);
+    border-left: 1px solid var(--c-border);
+    border-right: 1px solid var(--c-border);
+  }
+}
 </style>
