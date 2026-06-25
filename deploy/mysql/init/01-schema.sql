@@ -36,6 +36,15 @@ CREATE TABLE IF NOT EXISTS campus_product_db.product (
   KEY idx_category (category)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS campus_product_db.favorite (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_product (user_id, product_id),
+  KEY idx_user_id (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 -- ============ campus-order ============
 CREATE DATABASE IF NOT EXISTS campus_order_db
   DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

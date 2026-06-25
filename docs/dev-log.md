@@ -76,3 +76,21 @@
 
 - 后端补齐 收藏 / 分类 / 认证 / 聊天 域，前端把对应 mock 方法切到真实接口。
 - 列表卖家昵称已用 `/user/{id}` 补齐；后续后端若在 `ProductResponse` 内嵌卖家摘要可省掉这次 N+1 查询。
+
+## 2026-06-25：收藏域全栈打通（第一个新增后端域）
+
+### 本次完成
+
+- **后端新增收藏域（campus-product）**：`favorite` 表（`user_id`/`product_id` 唯一）+ `FavoriteEntity`/`FavoriteMapper` + `ProductService.toggleFavorite/listFavorites` + 两个接口：`POST /product/{id}/favorite`（切换，返回是否已收藏）、`GET /product/favorites`（我的收藏）。身份用网关注入的 `X-User-Id`，沿用既有 MyBatis Plus / `ApiResponse` 模式。
+- **前端切到真实接口**：`httpClient` 的 `listFavorites`/`toggleFavorite` 改打真实端点（覆盖 mock），收藏域不再走 mock。
+- **端到端验证通过**：curl（toggle ON→`true`、列表含该商品、toggle OFF→`false`、列表清空）+ 浏览器（点心形→后端落库→「我的收藏」页加载出来），卖家昵称也显示为真实昵称。
+- schema 同步：`docs/sql/schema.sql` 与 `deploy/mysql/init/01-schema.sql` 增加 `favorite` 表。
+
+### 学到的内容
+
+- `GET /product/favorites` 必须声明在 `GET /product/{id}` 之前（或靠 Spring 的精确优先匹配），否则 "favorites" 会被当作 `{id}`。
+- 联调环境踩坑：① Nacos 容器被 OOM kill（exit 137）后所有服务注册失败，`docker start campus-nacos` 即可恢复；② IntelliJ 用 JDK 26 跑网关会 500，必须 JDK 17。
+
+### 下一步计划
+
+- 继续补 分类 / 认证 / 聊天 域的真实接口；收藏数（`favoriteCount`）可在商品列表用收藏表 count 补上。

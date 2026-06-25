@@ -126,4 +126,19 @@ export const httpApi = {
     if (!isOk(res) || !res.data) return fail(res.code, res.message);
     return ok(adaptProduct(res.data));
   },
+
+  // 收藏：身份由网关从 JWT 注入 X-User-Id，前端无需传 userId
+  async listFavorites(_userId: string): Promise<ApiResponse<ProductCard[]>> {
+    const res = await http.get<BackendProduct[]>('/product/favorites');
+    if (!isOk(res) || !res.data) return fail(res.code, res.message);
+    const cards = res.data.map(adaptProduct);
+    await enrichSellers(cards);
+    return ok(cards);
+  },
+
+  async toggleFavorite(_userId: string, productId: string): Promise<ApiResponse<{ favorited: boolean }>> {
+    const res = await http.post<boolean>(`/product/${productId}/favorite`);
+    if (!isOk(res)) return fail(res.code, res.message);
+    return ok({ favorited: Boolean(res.data) });
+  },
 };
