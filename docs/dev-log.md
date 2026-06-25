@@ -85,6 +85,7 @@
 - **前端切到真实接口**：`httpClient` 的 `listFavorites`/`toggleFavorite` 改打真实端点（覆盖 mock），收藏域不再走 mock。
 - **端到端验证通过**：curl（toggle ON→`true`、列表含该商品、toggle OFF→`false`、列表清空）+ 浏览器（点心形→后端落库→「我的收藏」页加载出来），卖家昵称也显示为真实昵称。
 - schema 同步：`docs/sql/schema.sql` 与 `deploy/mysql/init/01-schema.sql` 增加 `favorite` 表。
+- **真实收藏数**：`ProductResponse` 增加 `favoriteCount`，`toResponse` 用收藏表 `count` 统计；前端适配后商品列表/详情显示真实「N 人想要」（验证：商品 1 显示 4 想要）。
 
 ### 学到的内容
 

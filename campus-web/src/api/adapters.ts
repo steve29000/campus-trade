@@ -24,6 +24,7 @@ export interface BackendProduct {
   category: string;
   price: number;
   status: BackendProductStatus;
+  favoriteCount?: number;
 }
 
 // ---------- 状态映射 ----------
@@ -111,7 +112,7 @@ export function adaptProduct(p: BackendProduct): ProductCard {
     status: STATUS_FROM_BACKEND[p.status] ?? 'ON_SALE',
     images: [{ url: '', sortOrder: 0 }],
     viewCount: 0,
-    favoriteCount: 0,
+    favoriteCount: p.favoriteCount ?? 0,
     createdAt: now,
     updatedAt: now,
     seller: adaptSellerBrief(p.sellerId),
