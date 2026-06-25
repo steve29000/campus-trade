@@ -36,6 +36,23 @@ interface CreatePayload {
   imageCount: number;
 }
 
+// 后端 ProductResponse 只给 sellerId，这里按需查 /user/{id} 补真实昵称（去重 + 进程内缓存）。
+const sellerNameCache = new Map<string, string>();
+
+async function enrichSellers(cards: ProductCard[]): Promise<void> {
+  const need = [...new Set(cards.map((c) => c.sellerId))].filter((id) => !sellerNameCache.has(id));
+  await Promise.all(
+    need.map(async (id) => {
+      const r = await http.get<BackendUserProfile>(`/user/${id}`);
+      if (isOk(r) && r.data) sellerNameCache.set(id, r.data.nickname || r.data.username);
+    }),
+  );
+  for (const c of cards) {
+    const name = sellerNameCache.get(c.sellerId);
+    if (name) c.seller.nickname = name;
+  }
+}
+
 export const httpApi = {
   async login(emailOrId: string, password?: string): Promise<ApiResponse<User>> {
     const res = await http.post<BackendLoginResponse>('/user/login', { username: emailOrId, password: password ?? '' });
@@ -70,20 +87,26 @@ export const httpApi = {
     const qs = params.toString();
     const res = await http.get<BackendProduct[]>(`/product${qs ? `?${qs}` : ''}`);
     if (!isOk(res) || !res.data) return fail(res.code, res.message);
-    return ok(res.data.map(adaptProduct));
+    const cards = res.data.map(adaptProduct);
+    await enrichSellers(cards);
+    return ok(cards);
   },
 
   async getProduct(id: string): Promise<ApiResponse<ProductDetail>> {
     const res = await http.get<BackendProduct>(`/product/${id}`);
     if (!isOk(res) || !res.data) return fail(res.code || 404, res.message || '商品不存在');
-    return ok(adaptProduct(res.data));
+    const card = adaptProduct(res.data);
+    await enrichSellers([card]);
+    return ok(card);
   },
 
   async myProducts(sellerId: string): Promise<ApiResponse<ProductCard[]>> {
     // 后端无"我的发布"接口，取全部后按 sellerId 过滤
     const res = await http.get<BackendProduct[]>('/product');
     if (!isOk(res) || !res.data) return fail(res.code, res.message);
-    return ok(res.data.filter((p) => String(p.sellerId) === sellerId).map(adaptProduct));
+    const cards = res.data.filter((p) => String(p.sellerId) === sellerId).map(adaptProduct);
+    await enrichSellers(cards);
+    return ok(cards);
   },
 
   async createProduct(payload: CreatePayload): Promise<ApiResponse<ProductCard>> {

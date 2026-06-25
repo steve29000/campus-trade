@@ -63,14 +63,16 @@
 - **联调管线固化**：`vite.config.ts` 内置 `/api` dev 代理（`/api/** → :8080`），浏览器同源绕开网关未配的 CORS；`VITE_API_BASE=/api` 设为推荐，`.env.example`、`deploy/README.md` 同步更新。
 - **DTO 适配打磨**：`api/adapters.ts` 把后端 `category` 中文名映射到本地 `categoryId`，真实商品显示正确分类图标（机械键盘→📱、生活用品→🛋️），无匹配回退 📦。
 - **HTTP 模式登录守卫**：后端除登录/注册外全部鉴权，新增路由守卫——联调模式未登录访问任意页自动跳登录；`http.ts` 收到 401 统一 `clearToken()`。Mock 模式不受影响（守卫按 `useHttp` 开关）。
+- **真实卖家昵称**：后端 `ProductResponse` 只给 `sellerId`，`httpClient` 新增 `enrichSellers()`，按 sellerId 去重查 `/user/{id}` 补昵称（进程内缓存），列表/详情不再显示「用户 N」。
 
 ### 学到的内容
 
 - 网关 `JwtAuthFilter` 把登录/注册精确放行、其余强制 `Authorization: Bearer`，校验后注入 `X-User-Id`；前端只管存登录拿到的 token、每次请求带上即可。
 - 网关没配 CORS 时，浏览器直连会被预检拦（OPTIONS 也走鉴权返回 403）；用 dev server 的 `/api` 代理同源转发是最省事的联调方式。
 - 用 `docker exec mysql -e "INSERT ... 中文"` 插数据要带 `--default-character-set=utf8mb4`，否则会乱码；App 走 JDBC（URL 带 `characterEncoding=UTF-8`）则正常。
+- **Spring Cloud Gateway（reactive/Netty）对 JDK 版本敏感**：JDK 17 上整条链路正常；用 JDK 26 跑网关时 `/user/login` 直接 500（同一 JDK 下 user/product 这类 MVC 服务却正常）。后端务必用 JDK 17（IntelliJ 把 Project SDK 设为 17）。
 
 ### 下一步计划
 
 - 后端补齐 收藏 / 分类 / 认证 / 聊天 域，前端把对应 mock 方法切到真实接口。
-- 列表卖家昵称目前是 `sellerId` 兜底（后端 `ProductResponse` 不含卖家），后续后端补卖家摘要或前端按需查 `/user/{id}`。
+- 列表卖家昵称已用 `/user/{id}` 补齐；后续后端若在 `ProductResponse` 内嵌卖家摘要可省掉这次 N+1 查询。
